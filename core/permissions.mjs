@@ -21,23 +21,46 @@ export class SecurityManager {
     this.isElevated = false;
     this.elevationScope = null;
     this.blockedPaths = [
-      /[\\\/]windows[\\\/]system32[\\\/]/i,
-      /[\\\/]windows[\\\/]system32$/i,
-      /[\\\/]config[\\\/]sam$/i,
-      /[\\\/]etc[\\\/]shadow$/i,
-      /[\\\/]etc[\\\/]sudoers$/i
+      /[\\\/]windows[\\\/]system32/i,
+      /[\\\/]windows[\\\/]syswow64/i,
+      /[\\\/]config[\\\/](sam|system|security|software|default)$/i,
+      /[\\\/]\.ssh[\\\/](id_rsa|id_ecdsa|id_ed25519|authorized_keys)$/i,
+      /[\\\/]\.aws[\\\/]credentials$/i,
+      /[\\\/]\.azure[\\\/]/i,
+      /[\\\/]\.kube[\\\/]config$/i,
+      /[\\\/]drivers[\\\/]etc[\\\/]hosts$/i,
+      /[\\\/]etc[\\\/](shadow|passwd|sudoers)$/i
     ];
   }
 
   setElevated(value, scope = "*") {
     this.isElevated = Boolean(value);
-    this.elevationScope = scope;
+    this.elevationScope = this.isElevated ? scope : null;
     this.logAudit({
       event: "elevation_change",
       isElevated: this.isElevated,
-      scope,
+      scope: this.elevationScope,
       timestamp: new Date().toISOString()
     });
+  }
+
+  revokeElevation() {
+    this.setElevated(false, null);
+    this.sessionPermissions.clear();
+    this.logAudit({
+      event: "elevation_revoked",
+      timestamp: new Date().toISOString()
+    });
+  }
+
+  getSecurityStatus() {
+    return {
+      isElevated: this.isElevated,
+      elevationScope: this.elevationScope,
+      sessionPermissionsCount: this.sessionPermissions.size,
+      activePermissions: Array.from(this.sessionPermissions),
+      blockedPathsCount: this.blockedPaths.length
+    };
   }
 
   isPathBlocked(targetPath) {

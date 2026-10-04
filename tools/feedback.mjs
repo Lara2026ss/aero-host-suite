@@ -185,3 +185,41 @@ ${Object.keys(feedback.context || {}).length ? `\n### Datos Adicionales (Anonimi
     }
   };
 }
+
+// Standalone CLI execution
+import { fileURLToPath } from "node:url";
+if (process.argv[1] === fileURLToPath(import.meta.url)) {
+  const tool = createFeedbackDomain({ runtime: { dirs: { feedback: path.join(process.cwd(), "data", "feedback") } } });
+  const cmd = process.argv[2] || "--list";
+
+  (async () => {
+    try {
+      if (cmd === "--submit") {
+        const title = process.argv[3] || "Reporte de usuario";
+        const desc = process.argv[4] || "";
+        const type = process.argv[5] || "bug";
+        const res = await tool.actions.send_feedback({
+          type,
+          tool: "launcher",
+          description: `${title}: ${desc}`.trim()
+        });
+        console.log(`\n[OK] Feedback registrado con éxito: ${res.id}`);
+        console.log(`[OK] Guardado en: data/feedback/${res.id}.json`);
+        if (res.githubIssueUrl) {
+          console.log(`\n[URL] Abrir issue en GitHub (opcional):\n${res.githubIssueUrl}\n`);
+        }
+      } else if (cmd === "--view") {
+        const id = process.argv[3];
+        const res = await tool.actions.view_feedback({ id });
+        console.log(JSON.stringify(res, null, 2));
+      } else {
+        const res = await tool.actions.list_feedback({});
+        console.log(JSON.stringify(res, null, 2));
+      }
+    } catch (e) {
+      console.error("[ERROR]", e.message);
+      process.exit(1);
+    }
+  })();
+}
+

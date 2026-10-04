@@ -14,6 +14,17 @@ const SHIELD_PNG = path.join(ASSETS_DIR, "shield.png");
 export const AUMID = "FluxerXZ.Security.V26";
 export const SECURITY_TITLE = "Fluxer XZ · Seguridad";
 
+function escapeXmlEntities(str) {
+  if (!str) return "";
+  return String(str)
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&apos;")
+    .replace(/[^\x20-\x7E]/g, (c) => `&#${c.charCodeAt(0)};`);
+}
+
 /**
  * Send a native Windows desktop toast notification with official AppUserModelID and Shield icon.
  * @param {string} title
@@ -21,8 +32,8 @@ export const SECURITY_TITLE = "Fluxer XZ · Seguridad";
  * @param {object} options
  */
 export async function sendNativeNotification(title = SECURITY_TITLE, message = "", options = {}) {
-  const safeTitle = String(title || SECURITY_TITLE).replace(/'/g, "''").replace(/"/g, '""');
-  const safeMessage = String(message || "").replace(/'/g, "''").replace(/"/g, '""');
+  const safeTitle = escapeXmlEntities(title || SECURITY_TITLE);
+  const safeMessage = escapeXmlEntities(message || "");
   const pngUri = `file:///${SHIELD_PNG.replace(/\\/g, "/")}`;
 
   const psScript = `

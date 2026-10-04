@@ -595,10 +595,8 @@ function Run-DashboardMenu([string]$installDir) {
                 $fbTitle = Read-Host " Titulo de la incidencia o sugerencia"
                 $fbDesc  = Read-Host " Descripcion breve"
                 if ($fbTitle) {
-                    $fbCombined = "$fbTitle - $fbDesc"
-                    $fbScript = 'import("./tools/feedback.mjs").then(async m => { const t = m.createFeedbackTool(); const r = await t.actions.submit_feedback({ type: "bug", description: process.argv[1], tool: "launcher" }); console.log("\n[OK] Feedback guardado:", r.feedbackId); if (r.githubIssueUrl) console.log("[URL] GitHub Issue URL:", r.githubIssueUrl); });'
                     Push-Location $installDir
-                    & node --input-type=module -e $fbScript $fbCombined
+                    & node tools/feedback.mjs --submit "$fbTitle" "$fbDesc"
                     Pop-Location
                 }
                 Read-Host " Presione [ENTER] para continuar..."

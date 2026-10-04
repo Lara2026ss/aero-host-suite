@@ -40,12 +40,15 @@ Cuando una acción requiere aprobación, el diálogo oficial ofrece 3 opciones c
 
 ## 4. Rutas Críticas Protegidas
 
-Las siguientes rutas y patrones del sistema operativo están **estrictamente bloqueadas** por el router de seguridad:
-- Carpetas del sistema: `C:\Windows\System32`, `/etc/shadow`, `/etc/sudoers`.
-- Archivos de credenciales y bases de cuentas locales (`SAM`).
-- Intentos de traversal (`..\..\Windows\System32`).
+Las siguientes rutas y patrones del sistema operativo están **estrictamente bloqueadas** por el router de seguridad (`core/permissions.mjs`):
+- Carpetas del sistema Windows: `C:\Windows\System32`, `C:\Windows\SysWOW64`.
+- Hives de registro críticas de Windows: `SAM`, `SYSTEM`, `SECURITY`, `SOFTWARE`, `DEFAULT`.
+- Credenciales de autenticación: Claves SSH (`.ssh/id_rsa`, `id_ed25519`, `authorized_keys`), credenciales AWS (`.aws/credentials`), perfiles Azure (`.azure/`), configuraciones Kubernetes (`.kube/config`).
+- Tablas de resolución de red local: `drivers\etc\hosts`.
+- Sistemas Unix/WSL: `/etc/shadow`, `/etc/passwd`, `/etc/sudoers`.
+- Intentos de Directory Traversal (`..\..\Windows\System32`).
 
-Cualquier intento de acceso a estas rutas es interceptado inmediatamente con la decisión `blocked_system_integrity` y registrado en el log forense.
+Cualquier intento de acceso o modificación a estas rutas es interceptado inmediatamente con la decisión `blocked_system_integrity` y registrado en el log forense, sin importar si la sesión se encuentra elevada.
 
 ---
 
@@ -57,3 +60,13 @@ Cada verificación, cambio de elevación o decisión de permiso se registra en f
 - Recurso involucrado.
 - Nivel de riesgo.
 - Decisión final (`allowed_low_risk`, `allowed_elevated_session`, `granted_session`, `granted_once`, `denied_by_user`, `blocked_system_integrity`).
+
+---
+
+## 6. Revocación Inmediata de Elevación
+
+La elevación puede ser revocada en cualquier instante tanto programáticamente a través de `core/permissions.mjs` (`revokeElevation()`), vía la herramienta `security.revoke_elevation` desde el cliente MCP, o pulsando el botón correspondiente en la aplicación nativa `FluxerXZ.exe`. Al revocar:
+- Se eliminan todos los permisos temporales en memoria.
+- Se restablece el estado base a no elevado.
+- Se emite una entrada de auditoría forense con marca temporal.
+
