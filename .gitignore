@@ -1,0 +1,92 @@
+# Node.js & Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Environment & Secrets (NEVER commit secrets!)
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.pfx
+*.p12
+*.cert
+*.crt
+id_rsa
+id_ecdsa
+id_ed25519
+*token*
+*secret*
+GROQ.txt
+
+# Local User Storage & Runtime Artifacts
+storage/
+data/
+user_data/
+cache/
+logs/
+backups/
+*.log
+*.log.*
+*.sqlite
+*.sqlite-*
+*.db
+*.db-*
+*.bak
+*.tmp
+*.temp
+*.zip
+*.tar.gz
+
+# Local User Shortcuts (Only shortcuts.example.json is public)
+shortcuts.json
+
+# Local Generated Reports and Dumps from tests
+*.csv
+*.docx
+*.pdf
+*.xlsx
+reports/adversarial-report.json
+reports/audit_all_tools.json
+reports/audit_all_tools.md
+reports/cache-audit.json
+reports/doctor-summary.json
+reports/doctor-summary.md
+reports/failures.json
+reports/inventory.json
+reports/regression-report.json
+reports/stale-deploys.json
+reports/tool-matrix.json
+reports/verification-audit.json
+
+# Build & Staging
+dist/
+build/
+out/
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+Desktop.ini
+
+# IDE & Editor Settings
+.vscode/
+.idea/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+.gemini/
+
+__pycache__/
+*.pyc

@@ -1,0 +1,36 @@
+{
+  "name": "fluxer-xz",
+  "version": "26.0.1",
+  "description": "FLUXER XZ - PUBLIC RELEASE V26-0.1 — Next-Generation MCP Server for Windows with Compact Mode, Native Security, Multi-step Shortcuts & Autonomous Remote Updates",
+  "type": "module",
+  "main": "server.mjs",
+  "engines": {
+    "node": ">=22.0.0"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "docx": "^9.7.1",
+    "exceljs": "^4.4.0",
+    "mammoth": "^1.12.1",
+    "pdf-lib": "^1.17.1",
+    "pngjs": "^7.0.0",
+    "unpdf": "^1.8.1"
+  },
+  "scripts": {
+    "start": "node server.mjs",
+    "test": "node tests/run_all_tests.mjs",
+    "update": "node updater/updater.mjs",
+    "check": "node --check server.mjs"
+  },
+  "keywords": [
+    "mcp",
+    "fluxer-xz",
+    "windows",
+    "security",
+    "compact-mode",
+    "automation",
+    "ai-agent"
+  ],
+  "author": "Fluxer Core Team",
+  "license": "MIT"
+}
