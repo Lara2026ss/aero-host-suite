@@ -16,7 +16,8 @@ const TEST_SUITES = [
   { name: "4. Feedback Engine & Privacy Sanitization", file: "test_feedback.mjs" },
   { name: "5. Autonomous Remote Updater & Rollback", file: "test_updater_real.mjs" },
   { name: "6. Reconstructed Runtime & All 10 Tools", file: "test_runtime_and_tools.mjs" },
-  { name: "7. Physical Token Savings Benchmark", file: "measure_token_savings.mjs" }
+  { name: "7. Physical Token Savings Benchmark", file: "measure_token_savings.mjs" },
+  { name: "8. Advanced Office Live & Headless Engine", file: "test_advanced_office.mjs" }
 ];
 
 console.log("======================================================================");
@@ -33,7 +34,7 @@ for (const suite of TEST_SUITES) {
   const start = Date.now();
 
   const code = await new Promise((resolve) => {
-    exec(`node "${filePath}"`, (err, stdout, stderr) => {
+    exec(`node "${filePath}"`, { cwd: path.dirname(__dirname) }, (err, stdout, stderr) => {
       const elapsed = Date.now() - start;
       if (err) {
         console.log(`[FAILED] (${elapsed}ms)`);

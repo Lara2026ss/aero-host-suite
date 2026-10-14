@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Aero Host Suite — tools/documents.mjs
  * Capability: documents (Microsoft Word, PowerPoint, Excel & PDF Automation)
  * Provides real-time LIVE COM and HEADLESS document manipulation for Windows 11.
@@ -9,6 +9,9 @@ import os from "node:os";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 import { fileURLToPath } from "node:url";
+
+import { headlessEngine } from "./documents/headless.mjs";
+import { THEMES, TEMPLATE_PRESETS } from "./documents/templates.mjs";
 
 const execFileAsync = promisify(execFile);
 
@@ -50,7 +53,11 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       }
 
       try {
-        return JSON.parse(raw);
+        const parsed = JSON.parse(raw);
+        if (parsed && typeof parsed === "object" && parsed.ok && !parsed.mode) {
+          parsed.mode = "live_com";
+        }
+        return parsed;
       } catch (e) {
         return { ok: false, error: `Malformed JSON from Office COM: ${raw.slice(0, 200)}`, details: e.message };
       }
@@ -81,6 +88,39 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
     get_active: async (args = {}) => {
       const app = args.app || "word";
       return invokeOfficeCom("get_active", { app });
+    },
+
+    inspect_structure: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const app = args.app || "";
+      if (targetPath && targetPath.toLowerCase().endsWith(".pdf")) {
+        return headlessEngine.pdfInspect(targetPath);
+      }
+      if (args.mode === "headless" && targetPath && targetPath.toLowerCase().endsWith(".xlsx")) {
+        const readRes = await headlessEngine.excelRead(targetPath, { maxRows: 10 });
+        if (!readRes.ok) return readRes;
+        return {
+          ok: true,
+          mode: "headless_library",
+          format: "xlsx",
+          path: targetPath,
+          sheetCount: readRes.sheetCount || readRes.sheets?.length || 0,
+          sheets: (readRes.sheets || []).map(s => ({ name: s.name, rowCount: s.rowCount, columnCount: s.columnCount })),
+        };
+      }
+      if (args.mode === "headless" && targetPath && targetPath.toLowerCase().endsWith(".docx")) {
+        const extractRes = await headlessEngine.docxExtract(targetPath);
+        if (!extractRes.ok) return extractRes;
+        return {
+          ok: true,
+          mode: "headless_library",
+          format: "docx",
+          path: targetPath,
+          headings: extractRes.headings,
+          summary: extractRes.summary,
+        };
+      }
+      return invokeOfficeCom("inspect_structure", { path: targetPath, app });
     },
 
     // ── 2. Lifecycle Actions ───────────────────────────────────────────────────
@@ -141,10 +181,15 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       return invokeOfficeCom("export_pdf", { path: targetPath, outputPath });
     },
 
-    // ── 3. Word Actions ────────────────────────────────────────────────────────
     read: async (args = {}) => {
       const targetPath = args.path || args.file || "";
       const maxChars = args.maxChars ? Number(args.maxChars) : 4000;
+      if (targetPath && targetPath.toLowerCase().endsWith(".pdf")) {
+        return headlessEngine.pdfExtractText(targetPath, { maxPages: args.maxPages || 20 });
+      }
+      if (args.mode === "headless" && targetPath && targetPath.toLowerCase().endsWith(".docx")) {
+        return headlessEngine.docxExtract(targetPath);
+      }
       return invokeOfficeCom("read", { path: targetPath, maxChars });
     },
 
@@ -409,6 +454,138 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       });
     },
 
+    word_table_format: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const tableIndex = args.tableIndex ? Number(args.tableIndex) : 1;
+      const headerBg = args.headerBg || args.headerBackground || null;
+      const zebra = args.zebra !== undefined ? Boolean(args.zebra) : true;
+      const zebraBg = args.zebraBg || args.alternateBg || null;
+      const borderColor = args.borderColor || null;
+      const borderWidth = args.borderWidth ? Number(args.borderWidth) : null;
+      const colWidths = args.colWidths || args.columnWidths || null;
+      const save = Boolean(args.save);
+
+      return invokeOfficeCom("word_table_format", {
+        path: targetPath,
+        tableIndex,
+        headerBg,
+        zebra,
+        zebraBg,
+        borderColor,
+        borderWidth,
+        colWidths,
+        save,
+      });
+    },
+
+    word_comment: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const searchText = args.searchText || args.search || args.target || "";
+      const commentText = args.commentText || args.comment || args.text || "";
+      const author = args.author || "Antigravity AI";
+      const save = Boolean(args.save);
+
+      if (!commentText) return { ok: false, error: "Parameter 'commentText' is required" };
+
+      return invokeOfficeCom("word_comment", {
+        path: targetPath,
+        searchText,
+        commentText,
+        author,
+        save,
+      });
+    },
+
+    word_hyperlink: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const searchText = args.searchText || args.search || args.text || "";
+      const url = args.url || args.address || args.href || "";
+      const tooltip = args.tooltip || "";
+      const save = Boolean(args.save);
+
+      if (!searchText || !url) return { ok: false, error: "Parameters 'searchText' and 'url' are required" };
+
+      return invokeOfficeCom("word_hyperlink", {
+        path: targetPath,
+        searchText,
+        url,
+        tooltip,
+        save,
+      });
+    },
+
+    word_template: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const presetName = args.preset || args.template || "academic_report";
+      const themeName = args.theme || "politecnico_maroon";
+      const title = args.title || "Document Title";
+      const subtitle = args.subtitle || "";
+      const author = args.author || "Author";
+      const sections = Array.isArray(args.sections) ? args.sections : [];
+      const mode = args.mode || "live";
+
+      const theme = THEMES[themeName] || THEMES.politecnico_maroon;
+
+      if (mode === "headless" && targetPath) {
+        return headlessEngine.docxCreate(targetPath, {
+          title,
+          subtitle,
+          author,
+          sections,
+          theme,
+        });
+      }
+
+      if (targetPath) {
+        const createRes = await invokeOfficeCom("create", { app: "word", path: targetPath, visible: true });
+        if (!createRes.ok) return createRes;
+      }
+
+      await invokeOfficeCom("insert_cover_page", {
+        path: targetPath,
+        title,
+        subtitle,
+        author,
+        primaryColor: theme.primary,
+        secondaryColor: theme.secondary,
+        save: false,
+      });
+
+      for (const sec of sections) {
+        await invokeOfficeCom("append_section", {
+          path: targetPath,
+          heading: sec.heading || sec.title || "",
+          body: sec.body || sec.content || "",
+          headingLevel: sec.level || 1,
+          headingColor: theme.primary,
+          save: false,
+        });
+        if (sec.table && Array.isArray(sec.table)) {
+          await invokeOfficeCom("insert_table", {
+            path: targetPath,
+            rows: sec.table.length,
+            cols: sec.table[0]?.length || 2,
+            data: sec.table,
+            headerBgColor: theme.primary,
+            save: false,
+          });
+        }
+      }
+
+      if (args.save) {
+        await invokeOfficeCom("save", { path: targetPath, app: "word" });
+      }
+
+      return {
+        ok: true,
+        mode: "live_com",
+        template: presetName,
+        theme: themeName,
+        path: targetPath,
+        sectionsApplied: sections.length,
+      };
+    },
+
     insert_shape: async (args = {}) => {
       const app = args.app || "word";
       const targetPath = args.path || args.file || "";
@@ -508,11 +685,111 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       return invokeOfficeCom("delete_slide", { path: targetPath, slideIndex, save });
     },
 
+    ppt_slide_ops: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const action = args.action || args.operation || "duplicate";
+      const slideIndex = args.slideIndex ? Number(args.slideIndex) : 1;
+      const targetIndex = args.targetIndex ? Number(args.targetIndex) : null;
+      const width = args.width ? Number(args.width) : null;
+      const height = args.height ? Number(args.height) : null;
+      const orientation = args.orientation || null;
+      const save = Boolean(args.save);
+
+      return invokeOfficeCom("ppt_slide_ops", {
+        path: targetPath,
+        action,
+        slideIndex,
+        targetIndex,
+        width,
+        height,
+        orientation,
+        save,
+      });
+    },
+
+    ppt_notes: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const slideIndex = args.slideIndex ? Number(args.slideIndex) : 1;
+      const notesText = args.notesText !== undefined ? String(args.notesText) : (args.notes !== undefined ? String(args.notes) : null);
+      const action = notesText !== null ? "set" : "get";
+      const save = Boolean(args.save);
+
+      return invokeOfficeCom("ppt_notes", {
+        path: targetPath,
+        slideIndex,
+        notesText: notesText || "",
+        action,
+        save,
+      });
+    },
+
+    ppt_export_slide: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const slideIndex = args.slideIndex ? Number(args.slideIndex) : 1;
+      const outputPath = args.outputPath || args.output || "";
+      const width = args.width ? Number(args.width) : 1920;
+      const height = args.height ? Number(args.height) : 1080;
+
+      if (!outputPath) return { ok: false, error: "Parameter 'outputPath' is required for ppt_export_slide" };
+
+      return invokeOfficeCom("ppt_export_slide", {
+        path: targetPath,
+        slideIndex,
+        outputPath,
+        width,
+        height,
+      });
+    },
+
+    ppt_background: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const slideIndex = args.slideIndex ? Number(args.slideIndex) : 1;
+      const allSlides = Boolean(args.allSlides);
+      const color = args.color || "#FFFFFF";
+      const save = Boolean(args.save);
+
+      return invokeOfficeCom("ppt_background", {
+        path: targetPath,
+        slideIndex,
+        allSlides,
+        color,
+        save,
+      });
+    },
+
+    ppt_chart: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const slideIndex = args.slideIndex ? Number(args.slideIndex) : 1;
+      const chartType = args.chartType || args.type || "column";
+      const title = args.title || "";
+      const left = args.left ? Number(args.left) : 100;
+      const top = args.top ? Number(args.top) : 100;
+      const width = args.width ? Number(args.width) : 500;
+      const height = args.height ? Number(args.height) : 350;
+      const save = Boolean(args.save);
+
+      return invokeOfficeCom("ppt_chart", {
+        path: targetPath,
+        slideIndex,
+        chartType,
+        title,
+        left,
+        top,
+        width,
+        height,
+        save,
+      });
+    },
+
     // ── 5. Excel Actions ───────────────────────────────────────────────────────
     read_range: async (args = {}) => {
       const targetPath = args.path || args.file || "";
       const sheet = args.sheet || "";
       const range = args.range || "";
+
+      if (args.mode === "headless" && targetPath && targetPath.toLowerCase().endsWith(".xlsx")) {
+        return headlessEngine.excelRead(targetPath, { sheetName: sheet, maxRows: args.maxRows || 100 });
+      }
 
       return invokeOfficeCom("read_range", { path: targetPath, sheet, range });
     },
@@ -530,6 +807,25 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       const save = Boolean(args.save);
 
       if (!data.length) return { ok: false, error: "Parameter 'data' 2D array is required" };
+
+      if (args.mode === "headless" && targetPath && targetPath.toLowerCase().endsWith(".xlsx")) {
+        let headers = [];
+        let rows = data;
+        if (headerBold && data.length > 1) {
+          headers = data[0];
+          rows = data.slice(1);
+        }
+        return headlessEngine.excelWrite(targetPath, {
+          sheet,
+          startCell,
+          headers,
+          data: rows,
+          headerBgColor,
+          zebra: Boolean(args.zebra),
+          borders,
+          autoFit,
+        });
+      }
 
       return invokeOfficeCom("write_range", {
         path: targetPath,
@@ -581,6 +877,127 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       const save = Boolean(args.save);
 
       return invokeOfficeCom("add_sheet", { path: targetPath, name, save });
+    },
+
+    excel_table: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const sheet = args.sheet || "";
+      const range = args.range || "";
+      const name = args.name || args.tableName || "";
+      const style = args.style || "TableStyleMedium9";
+      const showHeaders = args.showHeaders !== undefined ? Boolean(args.showHeaders) : true;
+      const showTotals = Boolean(args.showTotals);
+      const save = Boolean(args.save);
+
+      if (!range) return { ok: false, error: "Parameter 'range' is required for excel_table" };
+
+      return invokeOfficeCom("excel_table", {
+        path: targetPath,
+        sheet,
+        range,
+        name,
+        style,
+        showHeaders,
+        showTotals,
+        save,
+      });
+    },
+
+    excel_chart: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const sheet = args.sheet || "";
+      const range = args.range || "";
+      const chartType = args.chartType || args.type || "column";
+      const title = args.title || "";
+      const left = args.left ? Number(args.left) : 300;
+      const top = args.top ? Number(args.top) : 20;
+      const width = args.width ? Number(args.width) : 400;
+      const height = args.height ? Number(args.height) : 250;
+      const save = Boolean(args.save);
+
+      if (!range) return { ok: false, error: "Parameter 'range' is required for excel_chart" };
+
+      return invokeOfficeCom("excel_chart", {
+        path: targetPath,
+        sheet,
+        range,
+        chartType,
+        title,
+        left,
+        top,
+        width,
+        height,
+        save,
+      });
+    },
+
+    excel_format_range: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const sheet = args.sheet || "";
+      const range = args.range || "";
+      const numberFormat = args.numberFormat || args.format || null;
+      const bold = args.bold !== undefined ? Boolean(args.bold) : null;
+      const italic = args.italic !== undefined ? Boolean(args.italic) : null;
+      const fontSize = args.fontSize ? Number(args.fontSize) : null;
+      const fontColor = args.fontColor || args.color || null;
+      const bgColor = args.bgColor || args.fillColor || null;
+      const align = args.align || args.horizontalAlignment || null;
+      const vAlign = args.vAlign || args.verticalAlignment || null;
+      const wrapText = args.wrapText !== undefined ? Boolean(args.wrapText) : null;
+      const borderStyle = args.borderStyle || null;
+      const borderColor = args.borderColor || null;
+      const rowHeight = args.rowHeight ? Number(args.rowHeight) : null;
+      const colWidth = args.colWidth ? Number(args.colWidth) : null;
+      const merge = args.merge !== undefined ? Boolean(args.merge) : null;
+      const save = Boolean(args.save);
+
+      if (!range) return { ok: false, error: "Parameter 'range' is required for excel_format_range" };
+
+      return invokeOfficeCom("excel_format_range", {
+        path: targetPath,
+        sheet,
+        range,
+        numberFormat,
+        bold,
+        italic,
+        fontSize,
+        fontColor,
+        bgColor,
+        align,
+        vAlign,
+        wrapText,
+        borderStyle,
+        borderColor,
+        rowHeight,
+        colWidth,
+        merge,
+        save,
+      });
+    },
+
+    excel_sheet_ops: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const sheet = args.sheet || "";
+      const action = args.action || args.operation || "rename";
+      const newName = args.newName || "";
+      const freezeCell = args.freezeCell || "A2";
+      const save = Boolean(args.save);
+
+      return invokeOfficeCom("excel_sheet_ops", {
+        path: targetPath,
+        sheet,
+        action,
+        newName,
+        freezeCell,
+        save,
+      });
+    },
+
+    excel_calculate: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const scanErrors = args.scanErrors !== undefined ? Boolean(args.scanErrors) : true;
+      const save = Boolean(args.save);
+      return invokeOfficeCom("excel_calculate", { path: targetPath, scanErrors, save });
     },
 
     // ── 6. Batch Actions ───────────────────────────────────────────────────────
@@ -780,6 +1197,41 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       return invokeOfficeCom("set_view", { path: targetPath, viewType, zoomPercent, showRuler });
     },
 
+    // ── 7. PDF & Headless Library Actions ─────────────────────────────────────
+    pdf_inspect: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      if (!targetPath) return { ok: false, error: "Parameter 'path' is required for pdf_inspect" };
+      return headlessEngine.pdfInspect(targetPath);
+    },
+
+    pdf_extract_text: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      if (!targetPath) return { ok: false, error: "Parameter 'path' is required for pdf_extract_text" };
+      return headlessEngine.pdfExtractText(targetPath, {
+        startPage: args.startPage,
+        endPage: args.endPage,
+        maxPages: args.maxPages,
+      });
+    },
+
+    pdf_merge: async (args = {}) => {
+      const files = args.files || args.paths || [];
+      const outputPath = args.outputPath || args.output || "";
+      if (!Array.isArray(files) || files.length < 2) {
+        return { ok: false, error: "Parameter 'files' must be an array of at least 2 PDF paths" };
+      }
+      if (!outputPath) return { ok: false, error: "Parameter 'outputPath' is required for pdf_merge" };
+      return headlessEngine.pdfMerge(files, outputPath);
+    },
+
+    get_templates: async (args = {}) => {
+      return {
+        ok: true,
+        themes: THEMES,
+        presets: TEMPLATE_PRESETS,
+      };
+    },
+
   };
 
   return {
@@ -789,6 +1241,7 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       status: "low",
       list_open: "low",
       get_active: "low",
+      inspect_structure: "low",
       create: "low",
       open: "low",
       save: "low",
@@ -806,6 +1259,10 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       add_page_numbers: "low",
       insert_page_break: "low",
       insert_table: "low",
+      word_table_format: "low",
+      word_comment: "low",
+      word_hyperlink: "low",
+      word_template: "low",
       insert_shape: "low",
       insert_image: "low",
       capture_preview: "low",
@@ -814,10 +1271,20 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       add_slide: "low",
       set_slide_text: "low",
       delete_slide: "low",
+      ppt_slide_ops: "low",
+      ppt_notes: "low",
+      ppt_export_slide: "low",
+      ppt_background: "low",
+      ppt_chart: "low",
       read_range: "low",
       write_range: "low",
       write_cell: "low",
       add_sheet: "low",
+      excel_table: "low",
+      excel_chart: "low",
+      excel_format_range: "low",
+      excel_sheet_ops: "low",
+      excel_calculate: "low",
       batch_create: "low",
       batch_edit: "low",
       apply_style: "low",
@@ -836,6 +1303,10 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       get_document_stats: "low",
       set_language: "low",
       set_view: "low",
+      pdf_inspect: "low",
+      pdf_extract_text: "low",
+      pdf_merge: "low",
+      get_templates: "low",
     },
     actions
   };

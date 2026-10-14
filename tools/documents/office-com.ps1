@@ -3512,6 +3512,904 @@ function Invoke-ExcelAddSheet($params) {
     }
 }
 
+# --- Advanced Office Live Functions ---
+
+function Invoke-InspectStructure($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $appParam = if ($params.app) { $params.app.ToLower() } else { "" }
+    
+    if (-not $appParam -and $srcPath) {
+        $ext = [System.IO.Path]::GetExtension($srcPath).ToLower()
+        if ($ext -in @(".docx", ".doc", ".dotx")) { $appParam = "word" }
+        elseif ($ext -in @(".xlsx", ".xls", ".xlsm")) { $appParam = "excel" }
+        elseif ($ext -in @(".pptx", ".ppt", ".potx")) { $appParam = "powerpoint" }
+    }
+    
+    if (-not $appParam) {
+        $w = Get-RunningApp "Word.Application"
+        if ($null -ne $w -and $w.Documents.Count -gt 0) { $appParam = "word" }
+        else {
+            $x = Get-RunningApp "Excel.Application"
+            if ($null -ne $x -and $x.Workbooks.Count -gt 0) { $appParam = "excel" }
+            else {
+                $p = Get-RunningApp "PowerPoint.Application"
+                if ($null -ne $p -and $p.Presentations.Count -gt 0) { $appParam = "powerpoint" }
+                else { $appParam = "word" }
+            }
+        }
+    }
+    
+    if ($appParam -eq "word") {
+        $word = Get-RunningApp "Word.Application"
+        $wasRunning = ($null -ne $word)
+        if (-not $wasRunning) {
+            if ($srcPath -and (Test-Path $srcPath -ErrorAction SilentlyContinue)) {
+                $word = New-Object -ComObject Word.Application
+                $word.Visible = $false
+                $doc = $word.Documents.Open($srcPath, [Type]::Missing, $true)
+            } else {
+                return @{ ok = $false; error = "Word is not running and no valid path provided" }
+            }
+        } else {
+            $doc = Find-DocInCollection $word $srcPath "word"
+            if ($null -eq $doc) {
+                if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+                elseif ($srcPath -and (Test-Path $srcPath -ErrorAction SilentlyContinue)) {
+                    $doc = $word.Documents.Open($srcPath, [Type]::Missing, $true)
+                } else {
+                    return @{ ok = $false; error = "No open Word document found" }
+                }
+            }
+        }
+        
+        try {
+            $pageCount = 1
+            try { $pageCount = [int]$doc.ComputeStatistics(2) } catch {}
+            $wordCount = 0
+            try { $wordCount = [int]$doc.ComputeStatistics(0) } catch {}
+            $paraCount = $doc.Paragraphs.Count
+            
+            $headings = @()
+            $maxHeadings = 50
+            for ($i = 1; $i -le [Math]::Min($paraCount, 500); $i++) {
+                try {
+                    $p = $doc.Paragraphs.Item($i)
+                    $styleName = [string]$p.Style.NameLocal
+                    $txt = $p.Range.Text.Trim()
+                    if ($txt.Length -gt 0 -and ($styleName -match "Heading|Título|Header|Encabezado" -or $p.OutlineLevel -le 3)) {
+                        $lvl = 1
+                        if ($styleName -match "2|Level 2|Nivel 2") { $lvl = 2 }
+                        elseif ($styleName -match "3|Level 3|Nivel 3") { $lvl = 3 }
+                        $headings += @{ index = $i; level = $lvl; style = $styleName; text = if ($txt.Length -gt 120) { $txt.Substring(0, 120) + "..." } else { $txt } }
+                        if ($headings.Count -ge $maxHeadings) { break }
+                    }
+                } catch {}
+            }
+            
+            $tables = @()
+            foreach ($tbl in $doc.Tables) {
+                try {
+                    $tables += @{
+                        rows = $tbl.Rows.Count
+                        columns = $tbl.Columns.Count
+                    }
+                } catch {}
+            }
+            
+            $headerText = ""
+            $footerText = ""
+            try {
+                $sec = $doc.Sections.Item(1)
+                $headerText = $sec.Headers.Item(1).Range.Text.Trim()
+                $footerText = $sec.Footers.Item(1).Range.Text.Trim()
+            } catch {}
+            
+            return @{
+                ok = $true
+                app = "word"
+                path = $doc.FullName
+                title = $doc.Name
+                pages = $pageCount
+                words = $wordCount
+                paragraphs = $paraCount
+                sections = $doc.Sections.Count
+                headings = $headings
+                tablesCount = $doc.Tables.Count
+                tables = $tables
+                header = $headerText
+                footer = $footerText
+            }
+        } finally {
+            if (-not $wasRunning -and $null -ne $doc) { try { $doc.Close([Type]::Missing, [Type]::Missing, [Type]::Missing) } catch {} }
+            if (-not $wasRunning -and $null -ne $word) { try { $word.Quit() } catch {} }
+            Release-Com $doc
+            Release-Com $word
+            Invoke-GarbageCollection
+        }
+    } elseif ($appParam -eq "excel") {
+        $excel = Get-RunningApp "Excel.Application"
+        $wasRunning = ($null -ne $excel)
+        if (-not $wasRunning) {
+            if ($srcPath -and (Test-Path $srcPath -ErrorAction SilentlyContinue)) {
+                $excel = New-Object -ComObject Excel.Application
+                $excel.Visible = $false
+                $wb = $excel.Workbooks.Open($srcPath, [Type]::Missing, $true)
+            } else {
+                return @{ ok = $false; error = "Excel is not running and no valid path provided" }
+            }
+        } else {
+            $wb = Get-ExcelWorkbook $excel $srcPath $false
+            if ($null -eq $wb) {
+                if ($srcPath -and (Test-Path $srcPath -ErrorAction SilentlyContinue)) {
+                    $wb = $excel.Workbooks.Open($srcPath, [Type]::Missing, $true)
+                } else {
+                    return @{ ok = $false; error = "No open Excel workbook found" }
+                }
+            }
+        }
+        
+        try {
+            $sheetsList = @()
+            foreach ($sh in $wb.Sheets) {
+                $ur = $sh.UsedRange
+                $headers = @()
+                try {
+                    $firstRow = $ur.Rows.Item(1)
+                    for ($c = 1; $c -le [Math]::Min($firstRow.Columns.Count, 20); $c++) {
+                        $v = $firstRow.Cells.Item(1, $c).Value2
+                        $headers += if ($null -ne $v) { [string]$v } else { "" }
+                    }
+                } catch {}
+                
+                $sheetTables = @()
+                try {
+                    foreach ($lo in $sh.ListObjects) {
+                        $sheetTables += @{ name = $lo.Name; range = $lo.Range.Address; style = $lo.TableStyle.Name }
+                    }
+                } catch {}
+                
+                $sheetCharts = @()
+                try {
+                    foreach ($co in $sh.ChartObjects()) {
+                        $sheetCharts += @{ name = $co.Name; title = try { $co.Chart.ChartTitle.Text } catch { "" } }
+                    }
+                } catch {}
+                
+                $sheetsList += @{
+                    name = $sh.Name
+                    visible = ($sh.Visible -eq -1)
+                    usedRange = $ur.Address
+                    rows = $ur.Rows.Count
+                    columns = $ur.Columns.Count
+                    headers = $headers
+                    tables = $sheetTables
+                    charts = $sheetCharts
+                }
+            }
+            
+            $namedRanges = @()
+            try {
+                foreach ($nr in $wb.Names) {
+                    $namedRanges += @{ name = $nr.Name; refersTo = $nr.RefersTo }
+                }
+            } catch {}
+            
+            return @{
+                ok = $true
+                app = "excel"
+                path = $wb.FullName
+                title = $wb.Name
+                totalSheets = $wb.Sheets.Count
+                sheets = $sheetsList
+                namedRanges = $namedRanges
+            }
+        } finally {
+            if (-not $wasRunning -and $null -ne $wb) { try { $wb.Close($false) } catch {} }
+            if (-not $wasRunning -and $null -ne $excel) { try { $excel.Quit() } catch {} }
+            Release-Com $wb
+            Release-Com $excel
+            Invoke-GarbageCollection
+        }
+    } elseif ($appParam -eq "powerpoint") {
+        $ppt = Get-RunningApp "PowerPoint.Application"
+        $wasRunning = ($null -ne $ppt)
+        if (-not $wasRunning) {
+            if ($srcPath -and (Test-Path $srcPath -ErrorAction SilentlyContinue)) {
+                $ppt = New-Object -ComObject PowerPoint.Application
+                $ppt.Visible = 1
+                $pres = $ppt.Presentations.Open($srcPath, 1, 0, 0)
+            } else {
+                return @{ ok = $false; error = "PowerPoint is not running and no valid path provided" }
+            }
+        } else {
+            $pres = Get-PptPresentation $ppt $srcPath $false
+            if ($null -eq $pres) {
+                if ($srcPath -and (Test-Path $srcPath -ErrorAction SilentlyContinue)) {
+                    $pres = $ppt.Presentations.Open($srcPath, 1, 0, 0)
+                } else {
+                    return @{ ok = $false; error = "No open PowerPoint presentation found" }
+                }
+            }
+        }
+        
+        try {
+            $slidesInfo = @()
+            foreach ($sl in $pres.Slides) {
+                $title = ""
+                $shapeTypes = @()
+                $bodyPreview = ""
+                foreach ($shp in $sl.Shapes) {
+                    $shapeTypes += $shp.Type
+                    if ($shp.HasTextFrame -eq -1) {
+                        $t = $shp.TextFrame.TextRange.Text.Trim()
+                        if ($t) {
+                            if (-not $title) { $title = $t }
+                            elseif (-not $bodyPreview) { $bodyPreview = if ($t.Length -gt 100) { $t.Substring(0, 100) + "..." } else { $t } }
+                        }
+                    }
+                }
+                
+                $notes = ""
+                try {
+                    $notes = $sl.NotesPage.Shapes.Placeholders.Item(2).TextFrame.TextRange.Text.Trim()
+                } catch {}
+                
+                $slidesInfo += @{
+                    slideNumber = $sl.SlideNumber
+                    title = $title
+                    shapeCount = $sl.Shapes.Count
+                    preview = $bodyPreview
+                    hasNotes = ($notes.Length -gt 0)
+                }
+            }
+            
+            $aspectRatio = "16:9"
+            try {
+                $ratio = [float]$pres.PageSetup.SlideWidth / [float]$pres.PageSetup.SlideHeight
+                if ($ratio -lt 1.4) { $aspectRatio = "4:3" }
+            } catch {}
+            
+            return @{
+                ok = $true
+                app = "powerpoint"
+                path = $pres.FullName
+                title = $pres.Name
+                slideCount = $pres.Slides.Count
+                aspectRatio = $aspectRatio
+                slides = $slidesInfo
+            }
+        } finally {
+            if (-not $wasRunning -and $null -ne $pres) { try { $pres.Close() } catch {} }
+            if (-not $wasRunning -and $null -ne $ppt) { try { $ppt.Quit() } catch {} }
+            Release-Com $pres
+            Release-Com $ppt
+            Invoke-GarbageCollection
+        }
+    } else {
+        return @{ ok = $false; error = "Target app '$appParam' not supported for inspect_structure" }
+    }
+}
+
+function Invoke-WordTableFormat($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $word = Get-RunningApp "Word.Application"
+    if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+    $doc = Find-DocInCollection $word $srcPath "word"
+    if ($null -eq $doc) {
+        if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+        else { return @{ ok = $false; error = "No open Word document found" } }
+    }
+    
+    $tableIdx = if ($params.tableIndex) { [int]$params.tableIndex } else { 1 }
+    try {
+        if ($doc.Tables.Count -lt $tableIdx -or $tableIdx -lt 1) {
+            return @{ ok = $false; error = "Table index $tableIdx out of bounds (document has $($doc.Tables.Count) tables)" }
+        }
+        $tbl = $doc.Tables.Item($tableIdx)
+        
+        if ($params.headerBgColor) {
+            $hBg = ConvertTo-WordColor $params.headerBgColor
+            if ($null -ne $hBg) {
+                $tbl.Rows.Item(1).Shading.BackgroundPatternColor = $hBg
+                $tbl.Rows.Item(1).Range.Font.Color = 16777215
+                $tbl.Rows.Item(1).Range.Font.Bold = 1
+            }
+        }
+        if ($params.headerColor) {
+            $hFg = ConvertTo-WordColor $params.headerColor
+            if ($null -ne $hFg) { $tbl.Rows.Item(1).Range.Font.Color = $hFg }
+        }
+        
+        if ($params.zebra -and $tbl.Rows.Count -gt 2) {
+            $zCol = if ($params.zebraColor) { ConvertTo-WordColor $params.zebraColor } else { 16119285 }
+            for ($r = 2; $r -le $tbl.Rows.Count; $r += 2) {
+                if ($null -ne $zCol) { $tbl.Rows.Item($r).Shading.BackgroundPatternColor = $zCol }
+            }
+        }
+        
+        if ($params.alignment) {
+            $tbl.Rows.Alignment = ConvertTo-WordAlignment $params.alignment
+        }
+        
+        if ($params.columnWidths -and $params.columnWidths.Count -gt 0) {
+            for ($c = 1; $c -le [Math]::Min($tbl.Columns.Count, $params.columnWidths.Count); $c++) {
+                try { $tbl.Columns.Item($c).Width = [float]$params.columnWidths[$c - 1] } catch {}
+            }
+        }
+        
+        if ($params.save -and $doc.Path -ne "") { try { $doc.Save() } catch {} }
+        return @{
+            ok = $true
+            path = $doc.FullName
+            tableIndex = $tableIdx
+            rows = $tbl.Rows.Count
+            columns = $tbl.Columns.Count
+        }
+    } finally {
+        Release-Com $doc
+        Release-Com $word
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-WordComment($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $word = Get-RunningApp "Word.Application"
+    if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+    $doc = Find-DocInCollection $word $srcPath "word"
+    if ($null -eq $doc) {
+        if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+        else { return @{ ok = $false; error = "No open Word document found" } }
+    }
+    
+    $commentText = if ($params.text) { [string]$params.text } else { [string]$params.comment }
+    if (-not $commentText) { return @{ ok = $false; error = "Parameter 'text' or 'comment' is required" } }
+    
+    try {
+        $rng = $doc.Content
+        if ($params.search) {
+            $find = $rng.Find
+            $find.ClearFormatting()
+            $find.Text = [string]$params.search
+            if (-not $find.Execute()) {
+                return @{ ok = $false; error = "Target search text not found: $($params.search)" }
+            }
+        }
+        $comment = $doc.Comments.Add($rng, $commentText)
+        if ($params.save -and $doc.Path -ne "") { try { $doc.Save() } catch {} }
+        return @{ ok = $true; path = $doc.FullName; comment = $commentText; targetText = $rng.Text.Trim() }
+    } finally {
+        Release-Com $doc
+        Release-Com $word
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-WordHyperlink($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $word = Get-RunningApp "Word.Application"
+    if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+    $doc = Find-DocInCollection $word $srcPath "word"
+    if ($null -eq $doc) {
+        if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+        else { return @{ ok = $false; error = "No open Word document found" } }
+    }
+    
+    $address = [string]$params.address
+    if (-not $address) { return @{ ok = $false; error = "Parameter 'address' (URL) is required" } }
+    
+    try {
+        $rng = $doc.Content
+        if ($params.search) {
+            $find = $rng.Find
+            $find.ClearFormatting()
+            $find.Text = [string]$params.search
+            if (-not $find.Execute()) {
+                return @{ ok = $false; error = "Target text for hyperlink not found: $($params.search)" }
+            }
+        }
+        $screenTip = if ($params.screenTip) { [string]$params.screenTip } else { "" }
+        $linkText = if ($params.text) { [string]$params.text } else { $rng.Text }
+        $hl = $doc.Hyperlinks.Add($rng, $address, [Type]::Missing, $screenTip, $linkText)
+        if ($params.save -and $doc.Path -ne "") { try { $doc.Save() } catch {} }
+        return @{ ok = $true; path = $doc.FullName; address = $address; text = $linkText }
+    } finally {
+        Release-Com $doc
+        Release-Com $word
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-ExcelTable($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $excel = Get-RunningApp "Excel.Application"
+    $wasRunning = ($null -ne $excel)
+    if (-not $wasRunning) {
+        $excel = New-Object -ComObject Excel.Application
+        $excel.Visible = $true
+        $wb = if ($srcPath -and (Test-Path $srcPath -ErrorAction SilentlyContinue)) { $excel.Workbooks.Open($srcPath) } else { $excel.Workbooks.Add() }
+    } else {
+        $wb = Get-ExcelWorkbook $excel $srcPath
+        if ($null -eq $wb) { $wb = $excel.Workbooks.Add() }
+    }
+    
+    try {
+        $sheet = if ($params.sheet) { $wb.Sheets.Item($params.sheet) } else { $wb.ActiveSheet }
+        $rangeStr = if ($params.range) { $params.range } else { $sheet.UsedRange.Address }
+        $rng = $sheet.Range($rangeStr)
+        
+        $styleName = if ($params.style) { [string]$params.style } else { "TableStyleMedium9" }
+        $tableName = if ($params.name) { [string]$params.name } else { "Table_" + [Guid]::NewGuid().ToString("N").Substring(0, 6) }
+        $hasHeaders = if ($params.hasHeaders -ne $false) { 1 } else { 2 }
+        
+        $tableObj = $sheet.ListObjects.Add(1, $rng, [Type]::Missing, $hasHeaders)
+        try { $tableObj.Name = $tableName } catch {}
+        try { $tableObj.TableStyle = $styleName } catch {}
+        if ($params.showTotals) {
+            try { $tableObj.ShowTotals = $true } catch {}
+        }
+        
+        if ($params.save -and $wb.Path -ne "") { try { $wb.Save() } catch {} }
+        return @{
+            ok = $true
+            path = $wb.FullName
+            sheet = $sheet.Name
+            tableName = $tableObj.Name
+            range = $tableObj.Range.Address
+            style = $styleName
+        }
+    } finally {
+        Release-Com $wb
+        Release-Com $excel
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-ExcelChart($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $excel = Get-RunningApp "Excel.Application"
+    $wasRunning = ($null -ne $excel)
+    if (-not $wasRunning) {
+        $excel = New-Object -ComObject Excel.Application
+        $excel.Visible = $true
+        $wb = if ($srcPath -and (Test-Path $srcPath -ErrorAction SilentlyContinue)) { $excel.Workbooks.Open($srcPath) } else { $excel.Workbooks.Add() }
+    } else {
+        $wb = Get-ExcelWorkbook $excel $srcPath
+        if ($null -eq $wb) { $wb = $excel.Workbooks.Add() }
+    }
+    
+    try {
+        $sheet = if ($params.sheet) { $wb.Sheets.Item($params.sheet) } else { $wb.ActiveSheet }
+        $sourceRangeStr = if ($params.sourceRange) { $params.sourceRange } else { $sheet.UsedRange.Address }
+        $sourceRng = $sheet.Range($sourceRangeStr)
+        
+        $chartTypeStr = if ($params.chartType) { $params.chartType.ToLower() } else { "column" }
+        $xlChartType = switch ($chartTypeStr) {
+            "line" { 4 }
+            "pie"  { 5 }
+            "bar"  { 57 }
+            "area" { 1 }
+            default { 51 }
+        }
+        
+        $left = if ($params.left) { [float]$params.left } else { 350.0 }
+        $top = if ($params.top) { [float]$params.top } else { 50.0 }
+        $width = if ($params.width) { [float]$params.width } else { 450.0 }
+        $height = if ($params.height) { [float]$params.height } else { 280.0 }
+        
+        $chartShape = $sheet.Shapes.AddChart2(201, $xlChartType, $left, $top, $width, $height)
+        $chart = $chartShape.Chart
+        $chart.SetSourceData($sourceRng)
+        
+        if ($params.title) {
+            $chart.HasTitle = $true
+            $chart.ChartTitle.Text = [string]$params.title
+        }
+        if ($null -ne $params.legend) {
+            $chart.HasLegend = [bool]$params.legend
+        }
+        
+        if ($params.save -and $wb.Path -ne "") { try { $wb.Save() } catch {} }
+        return @{
+            ok = $true
+            path = $wb.FullName
+            sheet = $sheet.Name
+            chartType = $chartTypeStr
+            title = if ($chart.HasTitle) { $chart.ChartTitle.Text } else { "" }
+            left = $left
+            top = $top
+            width = $width
+            height = $height
+        }
+    } finally {
+        Release-Com $wb
+        Release-Com $excel
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-ExcelFormatRange($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $excel = Get-RunningApp "Excel.Application"
+    $wasRunning = ($null -ne $excel)
+    if (-not $wasRunning) {
+        $excel = New-Object -ComObject Excel.Application
+        $excel.Visible = $true
+        $wb = if ($srcPath -and (Test-Path $srcPath -ErrorAction SilentlyContinue)) { $excel.Workbooks.Open($srcPath) } else { $excel.Workbooks.Add() }
+    } else {
+        $wb = Get-ExcelWorkbook $excel $srcPath
+        if ($null -eq $wb) { $wb = $excel.Workbooks.Add() }
+    }
+    
+    try {
+        $sheet = if ($params.sheet) { $wb.Sheets.Item($params.sheet) } else { $wb.ActiveSheet }
+        $rangeStr = if ($params.range) { $params.range } else { $sheet.UsedRange.Address }
+        $rng = $sheet.Range($rangeStr)
+        
+        if ($null -ne $params.bold) { $rng.Font.Bold = [bool]$params.bold }
+        if ($null -ne $params.italic) { $rng.Font.Italic = [bool]$params.italic }
+        if ($params.fontSize) { $rng.Font.Size = [float]$params.fontSize }
+        if ($params.fontName) { $rng.Font.Name = [string]$params.fontName }
+        if ($params.color) {
+            $c = ConvertTo-WordColor $params.color
+            if ($null -ne $c) { $rng.Font.Color = $c }
+        }
+        if ($params.bgColor -or $params.fillColor) {
+            $bg = if ($params.bgColor) { $params.bgColor } else { $params.fillColor }
+            $c = ConvertTo-WordColor $bg
+            if ($null -ne $c) { $rng.Interior.Color = $c }
+        }
+        
+        if ($params.alignment) {
+            $a = $params.alignment.ToString().ToLower()
+            $hAlign = switch ($a) {
+                "center" { -4108 }
+                "centrado" { -4108 }
+                "right" { -4152 }
+                "derecha" { -4152 }
+                default { -4131 }
+            }
+            $rng.HorizontalAlignment = $hAlign
+        }
+        if ($params.verticalAlignment) {
+            $va = $params.verticalAlignment.ToString().ToLower()
+            $vAlign = switch ($va) {
+                "top" { -4160 }
+                "bottom" { -4107 }
+                default { -4108 }
+            }
+            $rng.VerticalAlignment = $vAlign
+        }
+        if ($null -ne $params.wrapText) {
+            $rng.WrapText = [bool]$params.wrapText
+        }
+        
+        if ($params.numberFormat) {
+            $nf = $params.numberFormat.ToString().ToLower()
+            $formatStr = switch ($nf) {
+                "currency"   { "$#,##0.00" }
+                "moneda"     { "$#,##0.00" }
+                "percentage" { "0.0%" }
+                "porcentaje" { "0.0%" }
+                "date"       { "yyyy-mm-dd" }
+                "fecha"      { "yyyy-mm-dd" }
+                "integer"    { "#,##0" }
+                "entero"     { "#,##0" }
+                default      { [string]$params.numberFormat }
+            }
+            $rng.NumberFormat = $formatStr
+        }
+        
+        if ($params.borders) {
+            $rng.Borders.LineStyle = 1
+        }
+        
+        if ($params.merge -eq $true) {
+            $rng.Merge()
+        } elseif ($params.merge -eq $false -or $params.unmerge -eq $true) {
+            $rng.UnMerge()
+        }
+        
+        if ($params.rowHeight) { $rng.RowHeight = [float]$params.rowHeight }
+        if ($params.columnWidth) { $rng.ColumnWidth = [float]$params.columnWidth }
+        if ($params.autoFit) { $rng.Columns.AutoFit() }
+        
+        if ($params.save -and $wb.Path -ne "") { try { $wb.Save() } catch {} }
+        return @{
+            ok = $true
+            path = $wb.FullName
+            sheet = $sheet.Name
+            range = $rng.Address
+            rows = $rng.Rows.Count
+            columns = $rng.Columns.Count
+        }
+    } finally {
+        Release-Com $wb
+        Release-Com $excel
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-ExcelSheetOps($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $excel = Get-RunningApp "Excel.Application"
+    if ($null -eq $excel) { return @{ ok = $false; error = "Excel is not running" } }
+    $wb = Get-ExcelWorkbook $excel $srcPath
+    if ($null -eq $wb) { return @{ ok = $false; error = "No open Excel workbook found" } }
+    
+    $op = if ($params.action) { $params.action.ToLower() } else { "rename" }
+    $sheetTarget = if ($params.sheet) { $wb.Sheets.Item($params.sheet) } else { $wb.ActiveSheet }
+    
+    try {
+        switch ($op) {
+            "rename" {
+                if (-not $params.newName) { return @{ ok = $false; error = "Parameter 'newName' required for rename" } }
+                $sheetTarget.Name = [string]$params.newName
+            }
+            "delete" {
+                if ($wb.Sheets.Count -le 1) { return @{ ok = $false; error = "Cannot delete the only worksheet in workbook" } }
+                $excel.DisplayAlerts = $false
+                $sheetTarget.Delete()
+                $excel.DisplayAlerts = $true
+            }
+            "freeze" {
+                $sheetTarget.Activate()
+                $freezeCell = if ($params.freezeAt) { [string]$params.freezeAt } else { "B2" }
+                $sheetTarget.Range($freezeCell).Select()
+                $excel.ActiveWindow.FreezePanes = $true
+            }
+            "hide" {
+                $sheetTarget.Visible = 0
+            }
+            "unhide" {
+                $sheetTarget.Visible = -1
+            }
+            default {
+                return @{ ok = $false; error = "Unknown sheet operation: $op" }
+            }
+        }
+        
+        if ($params.save -and $wb.Path -ne "") { try { $wb.Save() } catch {} }
+        return @{
+            ok = $true
+            path = $wb.FullName
+            operation = $op
+            sheetName = $sheetTarget.Name
+            totalSheets = $wb.Sheets.Count
+        }
+    } finally {
+        Release-Com $wb
+        Release-Com $excel
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-ExcelCalculate($params) {
+    $excel = Get-RunningApp "Excel.Application"
+    if ($null -eq $excel) { return @{ ok = $false; error = "Excel is not running" } }
+    
+    try {
+        $excel.Calculate()
+        $wb = $excel.ActiveWorkbook
+        $errorsFound = @()
+        if ($null -ne $wb) {
+            foreach ($sh in $wb.Sheets) {
+                try {
+                    $formulas = $sh.UsedRange.SpecialCells(-4123)
+                    if ($null -ne $formulas) {
+                        foreach ($cell in $formulas) {
+                            $valStr = [string]$cell.Text
+                            if ($valStr -match "#REF!|#VALUE!|#NAME\?|#DIV/0!|#N/A") {
+                                $errorsFound += @{ sheet = $sh.Name; cell = $cell.Address; error = $valStr; formula = $cell.Formula }
+                            }
+                        }
+                    }
+                } catch {}
+            }
+        }
+        return @{
+            ok = $true
+            calculated = $true
+            errorsCount = $errorsFound.Count
+            errors = $errorsFound
+        }
+    } finally {
+        Release-Com $excel
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-PptSlideOps($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $ppt = Get-RunningApp "PowerPoint.Application"
+    if ($null -eq $ppt) { return @{ ok = $false; error = "PowerPoint is not running" } }
+    $pres = Get-PptPresentation $ppt $srcPath
+    if ($null -eq $pres) { return @{ ok = $false; error = "No open PowerPoint presentation found" } }
+    
+    $op = if ($params.action) { $params.action.ToLower() } else { "duplicate" }
+    
+    try {
+        switch ($op) {
+            "duplicate" {
+                $idx = if ($params.slideIndex) { [int]$params.slideIndex } else { 1 }
+                $dup = $pres.Slides.Item($idx).Duplicate()
+                return @{ ok = $true; operation = "duplicate"; newSlideNumber = $dup.Item(1).SlideNumber; totalSlides = $pres.Slides.Count }
+            }
+            "move" {
+                $from = [int]$params.fromIndex
+                $to = [int]$params.toIndex
+                $pres.Slides.Item($from).MoveTo($to)
+                return @{ ok = $true; operation = "move"; from = $from; to = $to; totalSlides = $pres.Slides.Count }
+            }
+            "set_size" {
+                $ratio = if ($params.aspectRatio) { $params.aspectRatio.ToString().ToLower() } else { "16:9" }
+                if ($ratio -match "16:9|widescreen") {
+                    $pres.PageSetup.SlideWidth = 960.0
+                    $pres.PageSetup.SlideHeight = 540.0
+                } else {
+                    $pres.PageSetup.SlideWidth = 720.0
+                    $pres.PageSetup.SlideHeight = 540.0
+                }
+                return @{ ok = $true; operation = "set_size"; width = $pres.PageSetup.SlideWidth; height = $pres.PageSetup.SlideHeight; ratio = $ratio }
+            }
+            default {
+                return @{ ok = $false; error = "Unknown slide operation: $op" }
+            }
+        }
+    } finally {
+        Release-Com $pres
+        Release-Com $ppt
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-PptNotes($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $ppt = Get-RunningApp "PowerPoint.Application"
+    if ($null -eq $ppt) { return @{ ok = $false; error = "PowerPoint is not running" } }
+    $pres = Get-PptPresentation $ppt $srcPath
+    if ($null -eq $pres) { return @{ ok = $false; error = "No open PowerPoint presentation found" } }
+    
+    $idx = if ($params.slideIndex) { [int]$params.slideIndex } else { 1 }
+    try {
+        $slide = $pres.Slides.Item($idx)
+        $notesShape = $slide.NotesPage.Shapes.Placeholders.Item(2)
+        if ($params.notes -or $params.text) {
+            $notesText = if ($params.notes) { [string]$params.notes } else { [string]$params.text }
+            $notesShape.TextFrame.TextRange.Text = $notesText
+            if ($params.save -and $pres.Path -ne "") { try { $pres.Save() } catch {} }
+            return @{ ok = $true; slideIndex = $idx; notes = $notesText; updated = $true }
+        } else {
+            $existing = $notesShape.TextFrame.TextRange.Text.Trim()
+            return @{ ok = $true; slideIndex = $idx; notes = $existing }
+        }
+    } finally {
+        Release-Com $pres
+        Release-Com $ppt
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-PptExportSlide($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $ppt = Get-RunningApp "PowerPoint.Application"
+    if ($null -eq $ppt) { return @{ ok = $false; error = "PowerPoint is not running" } }
+    $pres = Get-PptPresentation $ppt $srcPath
+    if ($null -eq $pres) { return @{ ok = $false; error = "No open PowerPoint presentation found" } }
+    
+    $idx = if ($params.slideIndex) { [int]$params.slideIndex } else { 1 }
+    $savePath = if ($params.outputPath) { $params.outputPath } else { "$env:TEMP\ppt_slide_$idx" + "_$([Guid]::NewGuid().ToString('N')).png" }
+    $w = if ($params.width) { [int]$params.width } else { 1920 }
+    $h = if ($params.height) { [int]$params.height } else { 1080 }
+    
+    try {
+        $slide = $pres.Slides.Item($idx)
+        $slide.Export($savePath, "PNG", $w, $h)
+        return @{
+            ok = $true
+            slideIndex = $idx
+            outputPath = $savePath
+            width = $w
+            height = $h
+            sizeBytes = (Get-Item $savePath).Length
+        }
+    } finally {
+        Release-Com $pres
+        Release-Com $ppt
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-PptBackground($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $ppt = Get-RunningApp "PowerPoint.Application"
+    if ($null -eq $ppt) { return @{ ok = $false; error = "PowerPoint is not running" } }
+    $pres = Get-PptPresentation $ppt $srcPath
+    if ($null -eq $pres) { return @{ ok = $false; error = "No open PowerPoint presentation found" } }
+    
+    $color = if ($params.color) { $params.color } else { "#FFFFFF" }
+    $cVal = ConvertTo-WordColor $color
+    $idx = if ($params.slideIndex) { [int]$params.slideIndex } else { 1 }
+    $all = [bool]$params.all
+    
+    try {
+        if ($all) {
+            foreach ($s in $pres.Slides) {
+                $s.FollowMasterBackground = 0
+                $s.Background.Fill.Solid()
+                $s.Background.Fill.ForeColor.RGB = $cVal
+            }
+        } else {
+            $slide = $pres.Slides.Item($idx)
+            $slide.FollowMasterBackground = 0
+            $slide.Background.Fill.Solid()
+            $slide.Background.Fill.ForeColor.RGB = $cVal
+        }
+        if ($params.save -and $pres.Path -ne "") { try { $pres.Save() } catch {} }
+        return @{ ok = $true; color = $color; slideIndex = if ($all) { "all" } else { $idx } }
+    } finally {
+        Release-Com $pres
+        Release-Com $ppt
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-PptChart($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $ppt = Get-RunningApp "PowerPoint.Application"
+    if ($null -eq $ppt) {
+        $ppt = New-Object -ComObject PowerPoint.Application
+        $ppt.Visible = 1
+        $pres = if ($srcPath -and (Test-Path $srcPath -ErrorAction SilentlyContinue)) { $ppt.Presentations.Open($srcPath) } else { $ppt.Presentations.Add(1) }
+    } else {
+        $pres = Get-PptPresentation $ppt $srcPath
+        if ($null -eq $pres) { $pres = $ppt.Presentations.Add(1) }
+    }
+    
+    $idx = if ($params.slideIndex) { [int]$params.slideIndex } else { 1 }
+    if ($idx -gt $pres.Slides.Count) {
+        $pres.Slides.Add($pres.Slides.Count + 1, 12) | Out-Null
+        $idx = $pres.Slides.Count
+    }
+    $slide = $pres.Slides.Item($idx)
+    
+    $chartTypeStr = if ($params.chartType) { $params.chartType.ToLower() } else { "column" }
+    $typeInt = switch ($chartTypeStr) {
+        "line" { 4 }
+        "pie"  { 5 }
+        "bar"  { 57 }
+        default { 51 }
+    }
+    
+    $left = if ($params.left) { [float]$params.left } else { 100.0 }
+    $top = if ($params.top) { [float]$params.top } else { 100.0 }
+    $width = if ($params.width) { [float]$params.width } else { 600.0 }
+    $height = if ($params.height) { [float]$params.height } else { 350.0 }
+    
+    try {
+        $chartShape = $slide.Shapes.AddChart2(-1, $typeInt, $left, $top, $width, $height)
+        if ($params.title) {
+            $chartShape.Chart.HasTitle = $true
+            $chartShape.Chart.ChartTitle.Text = [string]$params.title
+        }
+        if ($params.save -and $pres.Path -ne "") { try { $pres.Save() } catch {} }
+        return @{
+            ok = $true
+            app = "powerpoint"
+            slideIndex = $idx
+            chartType = $chartTypeStr
+            left = $left
+            top = $top
+            width = $width
+            height = $height
+        }
+    } finally {
+        Release-Com $pres
+        Release-Com $ppt
+        Invoke-GarbageCollection
+    }
+}
+
 # --- Main Entry Point ---
 
 try {
@@ -3523,6 +4421,20 @@ try {
     
     $result = Invoke-ComWithRetry {
         switch ($action) {
+            "inspect_structure"   { Invoke-InspectStructure $params }
+            "word_table_format"   { Invoke-WordTableFormat $params }
+            "word_comment"        { Invoke-WordComment $params }
+            "word_hyperlink"      { Invoke-WordHyperlink $params }
+            "excel_table"         { Invoke-ExcelTable $params }
+            "excel_chart"         { Invoke-ExcelChart $params }
+            "excel_format_range"  { Invoke-ExcelFormatRange $params }
+            "excel_sheet_ops"     { Invoke-ExcelSheetOps $params }
+            "excel_calculate"     { Invoke-ExcelCalculate $params }
+            "ppt_slide_ops"       { Invoke-PptSlideOps $params }
+            "ppt_notes"           { Invoke-PptNotes $params }
+            "ppt_export_slide"    { Invoke-PptExportSlide $params }
+            "ppt_background"      { Invoke-PptBackground $params }
+            "ppt_chart"           { Invoke-PptChart $params }
             "status"              { Invoke-Status $params }
             "list_open"           { Invoke-ListOpen $params }
             "get_active"          { Invoke-GetActive $params }

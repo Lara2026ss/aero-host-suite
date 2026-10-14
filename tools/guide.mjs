@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * tools/guide.mjs — Comprehensive Tool Catalog, Discovery Engine & Live Capability Manual
  */
@@ -10,13 +10,14 @@ export const DOMAIN_SIGNATURES = {
     status: { signature: "{ app?: 'word'|'excel'|'powerpoint'|'all' }", description: "Verifica estado de procesos Office y enlaces COM en vivo." },
     list_open: { signature: "{ app?: 'word'|'excel'|'powerpoint'|'all' }", description: "Lista todos los documentos y libros actualmente abiertos." },
     get_active: { signature: "{ app?: 'word'|'excel'|'powerpoint' }", description: "Metadatos y estado del documento en foco." },
+    inspect_structure: { signature: "{ path?: string, app?: 'word'|'excel'|'powerpoint'|'pdf', mode?: 'auto'|'live'|'headless' }", description: "Esquema jerárquico conciso de secciones, títulos, tablas, hojas o diapositivas." },
     create: { signature: "{ app: 'word'|'excel'|'powerpoint', path?: string, template?: string, visible?: boolean, forceNew?: boolean }", description: "Crea un documento en blanco o desde plantilla." },
     open: { signature: "{ path: string, visible?: boolean, readOnly?: boolean }", description: "Abre un documento existente de Word, PowerPoint o Excel." },
     save: { signature: "{ app?: 'word'|'excel'|'powerpoint', path?: string }", description: "Guarda cambios en el documento activo o especificado." },
     save_as: { signature: "{ targetPath: string, path?: string }", description: "Guarda una copia en la ruta de destino (crea directorios padre si no existen)." },
     close: { signature: "{ path?: string, app?: string, saveChanges?: boolean }", description: "Cierra el documento de forma segura." },
     export_pdf: { signature: "{ path: string, outputPath?: string }", description: "Exporta documento de Word, presentación o libro a formato PDF." },
-    read: { signature: "{ path?: string, maxChars?: number }", description: "Lee contenido, párrafos y estructura de Word." },
+    read: { signature: "{ path?: string, maxChars?: number }", description: "Lee contenido, párrafos y estructura de Word o extrae texto de PDF." },
     insert_text: { signature: "{ text: string, position?: 'end'|'start', alignment?: 'center'|'left'|'right'|'justify', fontSize?: number, fontName?: string, bold?: boolean, italic?: boolean, color?: string, lineSpacing?: number, spaceBefore?: number, spaceAfter?: number, pageBreak?: boolean, style?: string, bullet?: boolean, save?: boolean }", description: "Inserta texto formateado en Word." },
     replace_text: { signature: "{ search: string, replace: string, matchCase?: boolean, matchWholeWord?: boolean, save?: boolean }", description: "Reemplaza texto en Word conservando formato." },
     clear_document: { signature: "{ path?: string, save?: boolean }", description: "Borra el contenido de un documento de Word en vivo." },
@@ -27,6 +28,10 @@ export const DOMAIN_SIGNATURES = {
     add_page_numbers: { signature: "{ alignment?: 'center'|'right'|'left', firstPage?: boolean, save?: boolean }", description: "Inserta números de página automáticos en pie de página (omite portada con firstPage=false)." },
     insert_page_break: { signature: "{ beforeText?: string, afterText?: string, save?: boolean }", description: "Inserta un salto de página limpio en Word." },
     insert_table: { signature: "{ app?: 'word'|'powerpoint', rows: number, cols: number, data?: any[][], headerBold?: boolean, headerColor?: string, headerBgColor?: string, zebra?: boolean, zebraColor?: string, alignment?: 'center'|'left'|'right', save?: boolean }", description: "Inserta tabla formateada con bordes, cabecera y filas alternadas." },
+    word_table_format: { signature: "{ path?: string, tableIndex?: number, headerBg?: string, zebra?: boolean, zebraBg?: string, borderColor?: string, borderWidth?: number, colWidths?: number[], save?: boolean }", description: "Aplica formato avanzado y diseño profesional a tablas de Word." },
+    word_comment: { signature: "{ path?: string, searchText: string, commentText: string, author?: string, save?: boolean }", description: "Inserta comentarios de revisión anclados a texto en Word." },
+    word_hyperlink: { signature: "{ path?: string, searchText: string, url: string, tooltip?: string, save?: boolean }", description: "Inserta hipervínculos navegables en texto de Word." },
+    word_template: { signature: "{ path?: string, preset?: string, theme?: string, title?: string, subtitle?: string, author?: string, sections?: object[], mode?: 'live'|'headless', save?: boolean }", description: "Genera documento profesional con plantillas de diseño y paletas." },
     insert_shape: { signature: "{ app?: 'word'|'powerpoint', shapeType?: string, text?: string, fillColor?: string, textColor?: string, save?: boolean }", description: "Inserta formas vectoriales con texto y color." },
     insert_image: { signature: "{ imagePath: string, width?: number, height?: number, slideIndex?: number, left?: number, top?: number, save?: boolean }", description: "Inserta imagen en Word o PowerPoint." },
     apply_style: { signature: "{ path?: string, search?: string, style: string, save?: boolean }", description: "Aplica estilos nativos ('Heading 1', 'Título 1', 'Title', 'Normal', 'Quote') a texto." },
@@ -51,12 +56,26 @@ export const DOMAIN_SIGNATURES = {
     add_slide: { signature: "{ layout?: string, title?: string, body?: string, save?: boolean }", description: "Añade diapositiva en PowerPoint." },
     set_slide_text: { signature: "{ slideIndex?: number, shapeIndex?: number, text: string, save?: boolean }", description: "Modifica texto de forma en diapositiva." },
     delete_slide: { signature: "{ slideIndex: number, save?: boolean }", description: "Elimina una diapositiva en PowerPoint." },
-    read_range: { signature: "{ path?: string, sheet?: string, range?: string }", description: "Lee valores de celdas en Excel." },
-    write_range: { signature: "{ data: any[][], startCell?: string, sheet?: string, borders?: boolean, save?: boolean }", description: "Escribe matriz de datos en Excel con fórmulas y bordes." },
+    ppt_slide_ops: { signature: "{ path?: string, action: 'duplicate'|'move'|'set_size', slideIndex?: number, targetIndex?: number, width?: number, height?: number, orientation?: 'widescreen'|'standard', save?: boolean }", description: "Operaciones avanzadas en diapositivas (duplicar, mover, tamaño 16:9)." },
+    ppt_notes: { signature: "{ path?: string, slideIndex?: number, notesText?: string, action?: 'get'|'set', save?: boolean }", description: "Lee o actualiza notas del orador en PowerPoint." },
+    ppt_export_slide: { signature: "{ path?: string, slideIndex?: number, outputPath: string, width?: number, height?: number }", description: "Exporta diapositiva a PNG de alta resolución directamente vía COM." },
+    ppt_background: { signature: "{ path?: string, slideIndex?: number, allSlides?: boolean, color?: string, save?: boolean }", description: "Configura el color o tema de fondo de diapositivas." },
+    ppt_chart: { signature: "{ path?: string, slideIndex?: number, chartType?: 'column'|'line'|'pie'|'bar', title?: string, left?: number, top?: number, width?: number, height?: number, save?: boolean }", description: "Inserta gráfico nativo en diapositiva de PowerPoint." },
+    read_range: { signature: "{ path?: string, sheet?: string, range?: string, mode?: 'live'|'headless' }", description: "Lee valores de celdas en Excel en vivo o headless." },
+    write_range: { signature: "{ data: any[][], startCell?: string, sheet?: string, borders?: boolean, save?: boolean, mode?: 'live'|'headless' }", description: "Escribe matriz de datos en Excel con fórmulas y bordes." },
     write_cell: { signature: "{ cell?: string, value?: any, formula?: string, bold?: boolean, save?: boolean }", description: "Escribe celda individual en Excel." },
     add_sheet: { signature: "{ name?: string, save?: boolean }", description: "Añade nueva hoja de cálculo en Excel." },
+    excel_table: { signature: "{ path?: string, sheet?: string, range: string, name?: string, style?: string, showHeaders?: boolean, showTotals?: boolean, save?: boolean }", description: "Crea tabla estructurada oficial (ListObject) en Excel." },
+    excel_chart: { signature: "{ path?: string, sheet?: string, range: string, chartType?: 'column'|'line'|'pie'|'bar', title?: string, left?: number, top?: number, width?: number, height?: number, save?: boolean }", description: "Crea gráfico nativo en Excel vinculado a rango de datos." },
+    excel_format_range: { signature: "{ path?: string, sheet?: string, range: string, numberFormat?: string, bold?: boolean, italic?: boolean, fontSize?: number, fontColor?: string, bgColor?: string, align?: string, vAlign?: string, wrapText?: boolean, borderStyle?: string, borderColor?: string, rowHeight?: number, colWidth?: number, merge?: boolean, save?: boolean }", description: "Formatea rangos en Excel: número, porcentaje, moneda, alineación, bordes y rellenos." },
+    excel_sheet_ops: { signature: "{ path?: string, sheet?: string, action: 'rename'|'delete'|'hide'|'unhide'|'freeze_panes'|'unfreeze_panes', newName?: string, freezeCell?: string, save?: boolean }", description: "Gestión de hojas: renombrar, ocultar, inmovilizar paneles." },
+    excel_calculate: { signature: "{ path?: string, scanErrors?: boolean, save?: boolean }", description: "Fuerza recálculo de fórmulas y detecta errores (#REF!, #DIV/0!)." },
     batch_create: { signature: "{ documents: Array<{ app: string, path: string }> }", description: "Crea varios documentos de forma secuencial." },
-    batch_edit: { signature: "{ operations: Array<{ action: string, args: object }>, path?: string }", description: "Ejecuta lote de operaciones atómicas sobre un documento." }
+    batch_edit: { signature: "{ operations: Array<{ action: string, args: object }>, path?: string }", description: "Ejecuta lote de operaciones atómicas sobre un documento." },
+    pdf_inspect: { signature: "{ path: string }", description: "Inspecciona metadatos y páginas de documento PDF." },
+    pdf_extract_text: { signature: "{ path: string, startPage?: number, endPage?: number, maxPages?: number }", description: "Extrae texto limpio por página desde un PDF." },
+    pdf_merge: { signature: "{ files: string[], outputPath: string }", description: "Fusiona múltiples documentos PDF en uno solo." },
+    get_templates: { signature: "{}", description: "Consulta las paletas de diseño y plantillas disponibles." }
   },
   terminal: {
     run_command: { signature: "{ command: string, cwd?: string, timeoutMs?: number, maxOutputLines?: number }", description: "Ejecuta comandos de PowerShell o Bash de forma síncrona sin restricciones." },
