@@ -1,5 +1,5 @@
-/**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+﻿/**
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * core/runtime.mjs — Central Runtime and Lifecycle Engine
  */
 import path from "node:path";
@@ -23,8 +23,7 @@ export class Runtime {
       logs: path.join(this.rootDir, "data", "logs"),
       staging: path.join(this.rootDir, "data", "staging"),
       backups: path.join(this.rootDir, "data", "backups"),
-      feedback: path.join(this.rootDir, "data", "feedback"),
-      security: path.join(this.rootDir, "data", "security")
+      feedback: path.join(this.rootDir, "data", "feedback")
     };
 
     this.security = security;

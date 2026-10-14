@@ -16,18 +16,18 @@ console.log(` - Version: ${initRes.version}`);
 console.log(` - Tools Loaded (${initRes.toolsLoaded}):`, rt.registry.moduleNames().join(", "));
 
 assert.equal(initRes.ok, true);
-assert.equal(initRes.version, "V26-0.1");
-assert.equal(rt.registry.moduleNames().length, 11, "Expected exactly 11 tools loaded!");
+assert.equal(initRes.version, "V26-0.2");
+assert.equal(rt.registry.moduleNames().length, 10, "Expected exactly 10 tools loaded!");
 
 const expectedTools = [
   "files", "terminal", "system", "web", "documents",
-  "media", "shortcuts", "security", "upd", "feedback", "guide"
+  "media", "shortcuts", "upd", "feedback", "guide"
 ];
 
 for (const tool of expectedTools) {
   assert.ok(rt.registry.get(tool), `Tool '${tool}' must be registered!`);
 }
-console.log("[2] All 11 tools verified present in registry!");
+console.log("[2] All 10 tools verified present in registry!");
 
 // Test Router Dispatch for each tool:
 console.log("\n[3] Testing Router Execution on each tool:");
@@ -35,13 +35,8 @@ console.log("\n[3] Testing Router Execution on each tool:");
 // A. Guide
 const catRes = await rt.router.execute("guide", "get_catalog", {});
 assert.equal(catRes.ok, true);
-assert.equal(catRes.toolsCount, 11);
+assert.equal(catRes.toolsCount, 10);
 console.log(` - guide.get_catalog: OK (${catRes.toolsCount} tools)`);
-
-// B. Security
-const secRes = await rt.router.execute("security", "get_status", {});
-assert.equal(secRes.ok, true);
-console.log(" - security.get_status: OK");
 
 // C. Files
 const tmpTestFile = path.join(process.cwd(), "data", "test_file_router.txt");
@@ -60,9 +55,9 @@ assert.ok(sysRes.system.cpu);
 console.log(` - system.get_info: OK (CPU: ${sysRes.system.cpu.model})`);
 
 // E. Terminal
-const termRes = await rt.router.execute("terminal", "run_command", { command: "Write-Output 'Fluxer XZ Live'" });
+const termRes = await rt.router.execute("terminal", "run_command", { command: "Write-Output 'Aero Host Suite Live'" });
 assert.equal(termRes.ok, true);
-assert.match(termRes.stdout, /Fluxer XZ Live/);
+assert.match(termRes.stdout, /Aero Host Suite Live/);
 console.log(" - terminal.run_command: OK");
 
 // F. Shortcuts
@@ -84,7 +79,7 @@ console.log(` - media.list_printers: OK (${printersRes.count} printers found)`);
 // I. UPD
 const updStat = await rt.router.execute("upd", "get_status", {});
 assert.equal(updStat.ok, true);
-assert.equal(updStat.version, "V26-0.1");
+assert.equal(updStat.version, "V26-0.2");
 console.log(" - upd.get_status: OK");
 
 console.log("\n[SUCCESS] Runtime, registry and router verified for all 11 tools!");

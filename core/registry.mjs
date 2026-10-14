@@ -1,5 +1,5 @@
-/**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+﻿/**
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * core/registry.mjs — Slim & High-Performance Tool Registry
  */
 import path from "node:path";
@@ -44,7 +44,6 @@ export class Registry {
       { file: "documents.mjs", factory: "createDocumentsDomain" },
       { file: "media.mjs", factory: "createMediaDomain" },
       { file: "shortcuts.mjs", factory: "createShortcutsDomain" },
-      { file: "security.mjs", factory: "createSecurityDomain" },
       { file: "upd.mjs", factory: "createUpdDomain" },
       { file: "feedback.mjs", factory: "createFeedbackDomain" },
       { file: "guide.mjs", factory: "createGuideDomain" }

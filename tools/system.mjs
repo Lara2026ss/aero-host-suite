@@ -1,5 +1,5 @@
-/**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+﻿/**
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * tools/system.mjs — Comprehensive System, Diagnostics, Network & Package Management
  */
 import os from "node:os";
@@ -97,9 +97,12 @@ export function createSystemDomain({ runtime }) {
         if (!pid && !name) throw new Error("Especifique 'pid' o 'name' para terminar el proceso.");
         let cmd = "";
         if (pid) {
-          cmd = `Stop-Process -Id ${parseInt(pid, 10)} ${force ? "-Force" : ""}`;
+          const cleanPid = parseInt(pid, 10);
+          if (isNaN(cleanPid)) throw new Error("El 'pid' debe ser numérico.");
+          cmd = `Stop-Process -Id ${cleanPid} ${force ? "-Force" : ""}`;
         } else {
-          cmd = `Stop-Process -Name "${name}" ${force ? "-Force" : ""}`;
+          const safeName = String(name).replace(/[`"$;&|<>]/g, "");
+          cmd = `Stop-Process -Name "${safeName}" ${force ? "-Force" : ""}`;
         }
 
         await execAsync(`powershell.exe -NoProfile -Command "${cmd}"`);
@@ -110,22 +113,23 @@ export function createSystemDomain({ runtime }) {
         if (!serviceName) throw new Error("Parámetro 'serviceName' requerido.");
         const validActions = ["status", "start", "stop", "restart"];
         if (!validActions.includes(action)) throw new Error(`Acción inválida. Opciones: ${validActions.join(", ")}`);
+        const safeService = String(serviceName).replace(/[`"$;&|<>]/g, "");
 
         let cmd = "";
         if (action === "status") {
-          cmd = `Get-Service -Name "${serviceName}" | Select-Object Name, DisplayName, Status | ConvertTo-Json`;
+          cmd = `Get-Service -Name "${safeService}" | Select-Object Name, DisplayName, Status | ConvertTo-Json`;
           const { stdout } = await execAsync(`powershell.exe -NoProfile -Command "${cmd}"`);
           return { ok: true, service: JSON.parse(stdout) };
         } else if (action === "start") {
-          cmd = `Start-Service -Name "${serviceName}"`;
+          cmd = `Start-Service -Name "${safeService}"`;
         } else if (action === "stop") {
-          cmd = `Stop-Service -Name "${serviceName}" -Force`;
+          cmd = `Stop-Service -Name "${safeService}" -Force`;
         } else if (action === "restart") {
-          cmd = `Restart-Service -Name "${serviceName}" -Force`;
+          cmd = `Restart-Service -Name "${safeService}" -Force`;
         }
 
         await execAsync(`powershell.exe -NoProfile -Command "${cmd}"`);
-        return { ok: true, message: `Servicio '${serviceName}' ejecutó acción '${action}'.` };
+        return { ok: true, message: `Servicio '${safeService}' ejecutó acción '${action}'.` };
       },
 
       async diagnose_network({ host = "1.1.1.1", port = null }) {

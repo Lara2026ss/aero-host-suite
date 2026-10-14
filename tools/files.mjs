@@ -1,5 +1,5 @@
-/**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+﻿/**
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * tools/files.mjs — High-Efficiency File System Operations with Compact Mode
  */
 import fs from "node:fs/promises";
@@ -204,7 +204,16 @@ export function createFilesDomain({ runtime }) {
         const resolvedSrc = path.resolve(src);
         const resolvedDest = path.resolve(dest);
         await fs.mkdir(path.dirname(resolvedDest), { recursive: true });
-        await fs.rename(resolvedSrc, resolvedDest);
+        try {
+          await fs.rename(resolvedSrc, resolvedDest);
+        } catch (renameErr) {
+          if (renameErr.code === "EXDEV") {
+            await fs.cp(resolvedSrc, resolvedDest, { recursive: true });
+            await fs.rm(resolvedSrc, { recursive: true, force: true });
+          } else {
+            throw renameErr;
+          }
+        }
         return { ok: true, src: resolvedSrc, dest: resolvedDest };
       },
 
@@ -217,7 +226,16 @@ export function createFilesDomain({ runtime }) {
           await ensureTrash();
           const timestamp = Date.now();
           const trashTarget = path.join(trashDir, `${path.basename(fullPath)}_${timestamp}`);
-          await fs.rename(fullPath, trashTarget);
+          try {
+            await fs.rename(fullPath, trashTarget);
+          } catch (renameErr) {
+            if (renameErr.code === "EXDEV") {
+              await fs.cp(fullPath, trashTarget, { recursive: true });
+              await fs.rm(fullPath, { recursive: true, force: true });
+            } else {
+              throw renameErr;
+            }
+          }
           return { ok: true, movedToTrash: true, trashPath: trashTarget };
         }
 

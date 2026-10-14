@@ -1,8 +1,8 @@
-﻿# 🪟 AERON FLUXER X MCP v9.0 — ARQUITECTURA EXCLUSIVA PARA WINDOWS 10/11
+# 🪟 AERO HOST SUITE — ARQUITECTURA EXCLUSIVA PARA WINDOWS 10/11 (V26-0.2)
 
 ## 1. Directiva y Política de Plataforma Única
 
-**Aeron Fluxer X MCP v9.0** es un motor MCP diseñado y optimizado **estricta y exclusivamente para Windows 10 y Windows 11 (plataforma `win32`)**.
+**Aero Host Suite** es un motor MCP diseñado y optimizado **estricta y exclusivamente para Windows 10 y Windows 11 (plataforma `win32`)**.
 
 No implementa compatibilidad ficticia con Linux ni macOS. Cualquier intento de inicialización en una plataforma distinta de `win32` es interceptado en el bootstrap (`assertWindows()`) y abortado de forma inmediata con un mensaje fatal estructurado.
 

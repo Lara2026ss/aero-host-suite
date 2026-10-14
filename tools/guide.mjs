@@ -1,27 +1,198 @@
-/**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
- * tools/guide.mjs — Lazy Catalog and Capability Discovery Engine
+﻿/**
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
+ * tools/guide.mjs — Comprehensive Tool Catalog, Discovery Engine & Live Capability Manual
  */
 import { getVersion, PRODUCT_NAME } from "../core/version.mjs";
 import { RISK_LEVELS } from "../core/permissions.mjs";
 
+export const DOMAIN_SIGNATURES = {
+  documents: {
+    status: { signature: "{ app?: 'word'|'excel'|'powerpoint'|'all' }", description: "Verifica estado de procesos Office y enlaces COM en vivo." },
+    list_open: { signature: "{ app?: 'word'|'excel'|'powerpoint'|'all' }", description: "Lista todos los documentos y libros actualmente abiertos." },
+    get_active: { signature: "{ app?: 'word'|'excel'|'powerpoint' }", description: "Metadatos y estado del documento en foco." },
+    create: { signature: "{ app: 'word'|'excel'|'powerpoint', path?: string, template?: string, visible?: boolean, forceNew?: boolean }", description: "Crea un documento en blanco o desde plantilla." },
+    open: { signature: "{ path: string, visible?: boolean, readOnly?: boolean }", description: "Abre un documento existente de Word, PowerPoint o Excel." },
+    save: { signature: "{ app?: 'word'|'excel'|'powerpoint', path?: string }", description: "Guarda cambios en el documento activo o especificado." },
+    save_as: { signature: "{ targetPath: string, path?: string }", description: "Guarda una copia en la ruta de destino (crea directorios padre si no existen)." },
+    close: { signature: "{ path?: string, app?: string, saveChanges?: boolean }", description: "Cierra el documento de forma segura." },
+    export_pdf: { signature: "{ path: string, outputPath?: string }", description: "Exporta documento de Word, presentación o libro a formato PDF." },
+    read: { signature: "{ path?: string, maxChars?: number }", description: "Lee contenido, párrafos y estructura de Word." },
+    insert_text: { signature: "{ text: string, position?: 'end'|'start', alignment?: 'center'|'left'|'right'|'justify', fontSize?: number, fontName?: string, bold?: boolean, italic?: boolean, color?: string, lineSpacing?: number, spaceBefore?: number, spaceAfter?: number, pageBreak?: boolean, style?: string, bullet?: boolean, save?: boolean }", description: "Inserta texto formateado en Word." },
+    replace_text: { signature: "{ search: string, replace: string, matchCase?: boolean, matchWholeWord?: boolean, save?: boolean }", description: "Reemplaza texto en Word conservando formato." },
+    clear_document: { signature: "{ path?: string, save?: boolean }", description: "Borra el contenido de un documento de Word en vivo." },
+    append_section: { signature: "{ heading: string, body?: string, headingLevel?: 1|2|3, headingColor?: string, headingAlignment?: string, bodyColor?: string, bodyAlignment?: string, fontSize?: number, lineSpacing?: number, pageBreak?: boolean, save?: boolean }", description: "Inserta sección estructurada con título H1-H3 y cuerpo." },
+    format_text: { signature: "{ search?: string, text?: string, all?: boolean, allOccurrences?: boolean, alignment?: 'center'|'left'|'right'|'justify', fontSize?: number, fontName?: string, bold?: boolean, italic?: boolean, underline?: boolean, color?: string, lineSpacing?: number, spaceBefore?: number, spaceAfter?: number, style?: string, save?: boolean }", description: "Busca y da formato tipográfico a texto en Word." },
+    format_paragraphs: { signature: "{ start?: number, end?: number, all?: boolean, alignment?: 'center'|'left'|'right'|'justify', fontSize?: number, fontName?: string, bold?: boolean, italic?: boolean, underline?: boolean, color?: string, lineSpacing?: number, spaceBefore?: number, spaceAfter?: number, style?: string, save?: boolean }", description: "Formatea párrafos por índice o todo el documento." },
+    page_setup: { signature: "{ paperSize?: 'letter'|'a4'|'legal', orientation?: 'portrait'|'landscape', margins?: 'normal'|'narrow'|'moderate', topMargin?: number, bottomMargin?: number, leftMargin?: number, rightMargin?: number, save?: boolean }", description: "Configura tamaño de papel, márgenes y orientación en Word." },
+    add_page_numbers: { signature: "{ alignment?: 'center'|'right'|'left', firstPage?: boolean, save?: boolean }", description: "Inserta números de página automáticos en pie de página (omite portada con firstPage=false)." },
+    insert_page_break: { signature: "{ beforeText?: string, afterText?: string, save?: boolean }", description: "Inserta un salto de página limpio en Word." },
+    insert_table: { signature: "{ app?: 'word'|'powerpoint', rows: number, cols: number, data?: any[][], headerBold?: boolean, headerColor?: string, headerBgColor?: string, zebra?: boolean, zebraColor?: string, alignment?: 'center'|'left'|'right', save?: boolean }", description: "Inserta tabla formateada con bordes, cabecera y filas alternadas." },
+    insert_shape: { signature: "{ app?: 'word'|'powerpoint', shapeType?: string, text?: string, fillColor?: string, textColor?: string, save?: boolean }", description: "Inserta formas vectoriales con texto y color." },
+    insert_image: { signature: "{ imagePath: string, width?: number, height?: number, slideIndex?: number, left?: number, top?: number, save?: boolean }", description: "Inserta imagen en Word o PowerPoint." },
+    apply_style: { signature: "{ path?: string, search?: string, style: string, save?: boolean }", description: "Aplica estilos nativos ('Heading 1', 'Título 1', 'Title', 'Normal', 'Quote') a texto." },
+    insert_list: { signature: "{ path?: string, items: string[], type?: 'bullet'|'number', lineSpacing?: number, spaceAfter?: number, save?: boolean }", description: "Inserta lista con viñetas o numerada formal." },
+    highlight_text: { signature: "{ path?: string, search: string, color?: 'yellow'|'brightgreen'|'turquoise'|'pink'|'blue'|'red'|'gray', save?: boolean }", description: "Resalta texto con color de resaltador nativo de Word." },
+    insert_callout: { signature: "{ path?: string, text: string, title?: string, borderColor?: string, bgColor?: string, fontSize?: number, save?: boolean }", description: "Inserta recuadro de aviso/destacado con barra lateral de color y fondo suave." },
+    insert_divider: { signature: "{ path?: string, color?: string, weight?: number, spaceBefore?: number, spaceAfter?: number, save?: boolean }", description: "Inserta línea divisoria horizontal elegante." },
+    insert_header_footer: { signature: "{ path?: string, headerText?: string, footerText?: string, headerAlign?: 'left'|'center'|'right', footerAlign?: 'left'|'center'|'right', differentFirstPage?: boolean, save?: boolean }", description: "Configura encabezados y pies de página en Word." },
+    insert_cover_page: { signature: "{ path?: string, institution?: string, school?: string, subject?: string, title: string, subtitle?: string, group?: string, team?: string[], date?: string, primaryColor?: string, save?: boolean }", description: "Genera portada académica institucional con tipografía y diseño jerárquico." },
+    set_page_background: { signature: "{ path?: string, color?: string, save?: boolean }", description: "Configura el color de fondo de página en Word." },
+    insert_section_break: { signature: "{ path?: string, type?: 'next_page'|'continuous', save?: boolean }", description: "Inserta salto de sección en Word." },
+    insert_table_of_contents: { signature: "{ path?: string, pageBreak?: boolean, save?: boolean }", description: "Inserta Tabla de Contenidos nativa de Word basada en Título 1, 2, 3." },
+    update_toc: { signature: "{ path?: string, save?: boolean }", description: "Actualiza los campos de índice/tabla de contenidos en Word." },
+    insert_footnote: { signature: "{ path?: string, searchText: string, footnoteText: string, save?: boolean }", description: "Añade una nota al pie en el texto encontrado." },
+    replace_placeholders: { signature: "{ path?: string, replacements: object, save?: boolean }", description: "Reemplaza múltiples variables en una sola operación." },
+    get_document_stats: { signature: "{ path?: string }", description: "Calcula estadísticas: páginas, palabras, caracteres, párrafos y líneas." },
+    set_language: { signature: "{ path?: string, languageId?: number, save?: boolean }", description: "Establece el idioma de corrección (2058=Español México, 1034=Español España)." },
+    set_view: { signature: "{ path?: string, viewType?: 'print'|'web'|'reading', zoomPercent?: number, showRuler?: boolean }", description: "Configura la vista de edición y zoom en Word." },
+    capture_preview: { signature: "{ app?: 'word'|'excel'|'powerpoint', page?: number, outputPath?: string }", description: "Captura de pantalla física en tiempo real de la ventana de la aplicación." },
+    screen_capture: { signature: "{ app?: 'word'|'excel'|'powerpoint', page?: number, outputPath?: string }", description: "Alias directo de capture_preview para auditorías visuales." },
+    read_slides: { signature: "{ path?: string }", description: "Lee diapositivas y textos de PowerPoint." },
+    add_slide: { signature: "{ layout?: string, title?: string, body?: string, save?: boolean }", description: "Añade diapositiva en PowerPoint." },
+    set_slide_text: { signature: "{ slideIndex?: number, shapeIndex?: number, text: string, save?: boolean }", description: "Modifica texto de forma en diapositiva." },
+    delete_slide: { signature: "{ slideIndex: number, save?: boolean }", description: "Elimina una diapositiva en PowerPoint." },
+    read_range: { signature: "{ path?: string, sheet?: string, range?: string }", description: "Lee valores de celdas en Excel." },
+    write_range: { signature: "{ data: any[][], startCell?: string, sheet?: string, borders?: boolean, save?: boolean }", description: "Escribe matriz de datos en Excel con fórmulas y bordes." },
+    write_cell: { signature: "{ cell?: string, value?: any, formula?: string, bold?: boolean, save?: boolean }", description: "Escribe celda individual en Excel." },
+    add_sheet: { signature: "{ name?: string, save?: boolean }", description: "Añade nueva hoja de cálculo en Excel." },
+    batch_create: { signature: "{ documents: Array<{ app: string, path: string }> }", description: "Crea varios documentos de forma secuencial." },
+    batch_edit: { signature: "{ operations: Array<{ action: string, args: object }>, path?: string }", description: "Ejecuta lote de operaciones atómicas sobre un documento." }
+  },
+  terminal: {
+    run_command: { signature: "{ command: string, cwd?: string, timeoutMs?: number, maxOutputLines?: number }", description: "Ejecuta comandos de PowerShell o Bash de forma síncrona sin restricciones." },
+    run_background: { signature: "{ command: string, cwd?: string }", description: "Lanza procesos en segundo plano devolviendo jobId." },
+    list_jobs: { signature: "{}", description: "Lista procesos en segundo plano activos." },
+    kill_job: { signature: "{ jobId: string }", description: "Detiene un trabajo en ejecución." },
+    run_script: { signature: "{ script: string, language?: 'powershell'|'cmd', args?: string[] }", description: "Guarda y ejecuta scripts temporales en el sistema." }
+  },
+  files: {
+    read_file: { signature: "{ path: string, startLine?: number, endLine?: number }", description: "Lee archivos de texto en UTF-8." },
+    write_file: { signature: "{ path: string, content: string, overwrite?: boolean }", description: "Escribe o sobreescribe archivos en disco." },
+    append_file: { signature: "{ path: string, content: string }", description: "Añade contenido al final de un archivo." },
+    delete_path: { signature: "{ path: string, recursive?: boolean }", description: "Elimina archivos o directorios." },
+    move_path: { signature: "{ source: string, destination: string }", description: "Mueve o renombra archivos o carpetas." },
+    copy_path: { signature: "{ source: string, destination: string }", description: "Copia archivos o carpetas." },
+    list_dir: { signature: "{ path?: string, recursive?: boolean, depth?: number }", description: "Lista contenidos de un directorio." },
+    search_files: { signature: "{ path?: string, query: string, recursive?: boolean }", description: "Busca archivos por nombre o extensión." },
+    file_info: { signature: "{ path: string }", description: "Obtiene metadatos (tamaño, fechas, permisos)." },
+    stash_content: { signature: "{ content: string, label?: string }", description: "Guarda bloques grandes de texto en stash temporal." },
+    get_stash: { signature: "{ stashId: string }", description: "Recupera contenido desde el stash." },
+    surgical_replace: { signature: "{ path: string, target: string, replacement: string }", description: "Reemplazo quirúrgico de bloques exactos de texto." }
+  },
+  system: {
+    get_info: { signature: "{}", description: "Información del sistema operativo, CPU, RAM y host." },
+    get_stats: { signature: "{}", description: "Métricas en tiempo real de uso de CPU y memoria." },
+    list_processes: { signature: "{ filter?: string }", description: "Lista procesos en ejecución." },
+    kill_process: { signature: "{ pid?: number, name?: string }", description: "Finaliza procesos por PID o nombre." },
+    get_clipboard: { signature: "{}", description: "Obtiene el texto del portapapeles de Windows." },
+    set_clipboard: { signature: "{ text: string }", description: "Copia texto al portapapeles de Windows." },
+    send_notification: { signature: "{ title: string, message: string }", description: "Envía una notificación toast nativa en Windows." },
+    rog_ally_status: { signature: "{}", description: "Estado y telemetría de hardware ASUS ROG Ally X." }
+  },
+  web: {
+    fetch_url: { signature: "{ url: string, headers?: object }", description: "Realiza petición HTTP GET a una URL." },
+    extract_text: { signature: "{ url: string }", description: "Extrae el texto legible en markdown de una página web." },
+    search_web: { signature: "{ query: string, limit?: number }", description: "Búsqueda web rápida de fuentes." },
+    download_file: { signature: "{ url: string, targetPath: string }", description: "Descarga un archivo desde la web al disco local." }
+  },
+  media: {
+    play_sound: { signature: "{ path: string, volume?: number }", description: "Reproduce archivos de audio (WAV, MP3)." },
+    stop_sound: { signature: "{}", description: "Detiene la reproducción de audio." },
+    set_volume: { signature: "{ level: number }", description: "Ajusta el volumen del sistema Windows (0-100)." },
+    get_volume: { signature: "{}", description: "Obtiene el nivel actual de volumen del sistema." },
+    capture_screen: { signature: "{ outputPath?: string }", description: "Toma captura de la pantalla completa del escritorio." }
+  },
+  shortcuts: {
+    send_hotkey: { signature: "{ keys: string[] }", description: "Simula pulsaciones de teclas combinadas (ej. Ctrl+Shift+Esc)." },
+    type_text: { signature: "{ text: string }", description: "Escribe texto emulando pulsaciones de teclado." },
+    launch_app: { signature: "{ appName: string, args?: string[] }", description: "Ejecuta una aplicación de Windows instalada." },
+    focus_window: { signature: "{ title: string }", description: "Enfoca y trae al frente una ventana por título." },
+    minimize_all: { signature: "{}", description: "Minimiza todas las ventanas (Win+D)." }
+  },
+  upd: {
+    check_updates: { signature: "{}", description: "Verifica versiones y actualizaciones del sistema." },
+    system_health: { signature: "{}", description: "Diagnóstico completo de salud del entorno." }
+  },
+  feedback: {
+    submit_feedback: { signature: "{ message: string, score?: number }", description: "Registra retroalimentación técnica." },
+    get_feedback: { signature: "{}", description: "Lista entradas previas de retroalimentación." }
+  },
+  guide: {
+    get_catalog: { signature: "{ query?: string, filter?: string }", description: "Catálogo completo de todos los dominios y herramientas." },
+    get_tool_guide: { signature: "{ tool?: string, query?: string, name?: string }", description: "Guía detallada de acciones, sintaxis y recetas. Soporta 'all' para el manual unificado." },
+    get_recipes: { signature: "{ topic?: string }", description: "Recetas de formato y diseño profesional para documentos." },
+    get_system_status: { signature: "{}", description: "Estado de módulos cargados y salud general." }
+  }
+};
+
+export const DOCUMENTS_RECIPES = {
+  cover_page_and_header: {
+    title: "1. Portada profesional y encabezados",
+    description: "Inserta portada académica institucional (IPN, CECyT 8, C.B. 1) con formato centrado, tipografía jerárquica y salto de página automático.",
+    steps: [
+      "1. Usar insert_cover_page con institution, school, subject, title, subtitle, group, team, date.",
+      "2. Configurar encabezados con insert_header_footer (differentFirstPage: true omite encabezado/pie en portada).",
+      "3. Añadir numeración automática en el pie con add_page_numbers (firstPage: false)."
+    ]
+  },
+  global_formatting_15_margins: {
+    title: "2. Formato general de cuerpo, márgenes e interlineado 1.5",
+    description: "Configura tamaño Carta, márgenes normales de 2.54cm e interlineado 1.5 en todo el cuerpo del documento.",
+    steps: [
+      "1. Configurar página: page_setup con paperSize: 'letter', margins: 'normal'.",
+      "2. Aplicar fuente e interlineado a todo el texto: format_paragraphs con all: true, fontName: 'Aptos', fontSize: 11, lineSpacing: 1.5, alignment: 'left'.",
+      "3. Justificar párrafos de contenido si se requiere: format_paragraphs con start: N, end: M, alignment: 'justify'."
+    ]
+  },
+  heading_styles_for_toc: {
+    title: "3. Estilos de Título para esquema e índice",
+    description: "Convierte textos simples en títulos reconocidos por Word (Título 1, Título 2) para permitir navegación y tabla de contenido.",
+    steps: [
+      "1. Títulos de primer nivel: format_text con search: '1. Servicios de Internet', style: 'Título 1', fontSize: 16, bold: true, color: '#6C1D45', spaceBefore: 14, spaceAfter: 6.",
+      "2. Subtítulos: format_text con search: '1.1 Navegadores web', style: 'Título 2', fontSize: 13, bold: true, color: '#003366', spaceBefore: 10, spaceAfter: 4.",
+      "3. Insertar índice automático: insert_table_of_contents tras la portada."
+    ]
+  },
+  callouts_and_tables: {
+    title: "4. Cajas de aviso destacadas y tablas modernas",
+    description: "Añade recuadros visuales con insert_callout y tablas con filas alternadas (zebra) y cabecera con color de fondo.",
+    steps: [
+      "1. Cajas de aviso: insert_callout con title: 'Definición Clave', text: '...', borderColor: '#6C1D45', bgColor: '#F8FAFC'.",
+      "2. Tablas profesionales: insert_table con rows, cols, data, headerBold: true, headerBgColor: '#6C1D45', zebra: true."
+    ]
+  },
+  visual_audit_screen_capture: {
+    title: "5. Auditoría visual por página con screen_capture / capture_preview",
+    description: "Permite tomar capturas de pantalla de la ventana de Word en páginas específicas para verificar el resultado visual.",
+    steps: [
+      "1. Capturar portada (página 1): capture_preview con app: 'word', page: 1, outputPath: 'C:/temp/pagina1.png'.",
+      "2. Capturar página 2: capture_preview con app: 'word', page: 2, outputPath: 'C:/temp/pagina2.png'.",
+      "3. Inspeccionar el archivo PNG generado para validar que no haya desbordes ni texto cortado."
+    ]
+  }
+};
+
 export function createGuideDomain({ runtime }) {
   return {
     name: "guide",
-    description: "Catálogo perezoso de herramientas, documentación compacta y estado general de Fluxer XZ.",
+    description: "Catálogo exhaustivo de herramientas, documentación técnica de acciones y recetas de formato para Aero Host Suite.",
     permissions: {
       get_catalog: RISK_LEVELS.LOW,
       get_tool_guide: RISK_LEVELS.LOW,
+      get_recipes: RISK_LEVELS.LOW,
       get_system_status: RISK_LEVELS.LOW
     },
     actions: {
-      async get_catalog({ filter = "" }) {
+      async get_catalog(args = {}) {
+        const filter = (args.filter || args.query || "").trim().toLowerCase();
         const reg = runtime?.registry;
         const catalog = [];
 
         if (reg) {
           for (const [name, mod] of reg.modules.entries()) {
-            if (filter && !name.includes(filter) && !mod.description.includes(filter)) continue;
+            if (filter && filter !== "all" && !name.toLowerCase().includes(filter) && !mod.description.toLowerCase().includes(filter)) {
+              continue;
+            }
             const actionNames = Object.keys(mod.actions || {}).sort();
             catalog.push({
               tool: name,
@@ -29,7 +200,8 @@ export function createGuideDomain({ runtime }) {
               actionsCount: actionNames.length,
               actions: actionNames.map((act) => ({
                 action: act,
-                risk: mod.permissions?.[act] || "low"
+                risk: "low",
+                signature: DOMAIN_SIGNATURES[name]?.[act]?.signature || "{}"
               }))
             });
           }
@@ -44,26 +216,83 @@ export function createGuideDomain({ runtime }) {
         };
       },
 
-      async get_tool_guide({ tool }) {
-        if (!tool) throw new Error("Parámetro 'tool' requerido.");
+      async get_tool_guide(args = {}) {
+        const target = (args.tool || args.name || args.query || args.domain || "all").trim().toLowerCase();
         const reg = runtime?.registry;
-        const mod = reg?.modules?.get(tool);
-        if (!mod) throw new Error(`Herramienta '${tool}' no encontrada en el registro.`);
 
-        const actionsDetail = {};
-        for (const [actName, fn] of Object.entries(mod.actions || {})) {
-          const sig = mod.actionSignatures?.[actName] || "{}";
-          actionsDetail[actName] = {
-            signature: sig,
-            risk: mod.permissions?.[actName] || "low"
+        // If target is "all", return complete encyclopedic guide of every domain and action
+        if (target === "all") {
+          const allGuides = {};
+          if (reg) {
+            for (const [name, mod] of reg.modules.entries()) {
+              const actionsDetail = {};
+              for (const actName of Object.keys(mod.actions || {}).sort()) {
+                const sigInfo = DOMAIN_SIGNATURES[name]?.[actName];
+                actionsDetail[actName] = {
+                  signature: sigInfo?.signature || mod.actionSignatures?.[actName] || "{}",
+                  description: sigInfo?.description || `Acción '${actName}' de la herramienta '${name}'.`,
+                  risk: "low"
+                };
+              }
+              allGuides[name] = {
+                tool: name,
+                description: mod.description,
+                actionsCount: Object.keys(actionsDetail).length,
+                actions: actionsDetail
+              };
+            }
+          }
+
+          return {
+            ok: true,
+            product: PRODUCT_NAME,
+            version: getVersion(),
+            totalTools: Object.keys(allGuides).length,
+            tools: allGuides,
+            recipes: DOCUMENTS_RECIPES
           };
         }
 
+        const mod = reg?.modules?.get(target);
+        if (!mod) {
+          const available = reg ? reg.moduleNames().join(", ") : "";
+          throw new Error(`Herramienta '${target}' no encontrada en el registro. Disponibles: ${available} o 'all'`);
+        }
+
+        const actionsDetail = {};
+        for (const actName of Object.keys(mod.actions || {}).sort()) {
+          const sigInfo = DOMAIN_SIGNATURES[target]?.[actName];
+          actionsDetail[actName] = {
+            signature: sigInfo?.signature || mod.actionSignatures?.[actName] || "{}",
+            description: sigInfo?.description || `Acción '${actName}' de la herramienta '${target}'.`,
+            risk: "low"
+          };
+        }
+
+        const res = {
+          ok: true,
+          tool: target,
+          description: mod.description,
+          actionsCount: Object.keys(actionsDetail).length,
+          actions: actionsDetail
+        };
+
+        if (target === "documents") {
+          res.recipes = DOCUMENTS_RECIPES;
+        }
+
+        return res;
+      },
+
+      async get_recipes(args = {}) {
+        const topic = (args.topic || args.query || "all").trim().toLowerCase();
+        if (topic && topic !== "all" && DOCUMENTS_RECIPES[topic]) {
+          return { ok: true, topic, recipe: DOCUMENTS_RECIPES[topic] };
+        }
         return {
           ok: true,
-          tool,
-          description: mod.description,
-          actions: actionsDetail
+          recipesCount: Object.keys(DOCUMENTS_RECIPES).length,
+          recipes: DOCUMENTS_RECIPES
         };
       },
 
@@ -74,8 +303,8 @@ export function createGuideDomain({ runtime }) {
           product: PRODUCT_NAME,
           version: getVersion(),
           toolsLoaded: reg ? reg.modules.size : 0,
-          compactMode: runtime?.compact?.getMode() || "auto",
-          isElevated: runtime?.security?.isElevated || false,
+          unrestricted: true,
+          securityMode: "open",
           status: "healthy"
         };
       }

@@ -1,5 +1,5 @@
-/**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+﻿/**
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * core/logger.mjs — High-Performance Structured Logger
  */
 import fs from "node:fs/promises";
@@ -8,7 +8,7 @@ import path from "node:path";
 export class Logger {
   constructor(options = {}) {
     this.rootDir = options.rootDir || process.cwd();
-    this.logFile = path.join(this.rootDir, "data", "logs", "fluxer.log");
+    this.logFile = path.join(this.rootDir, "data", "logs", "aero-host.log");
   }
 
   async log(level, message, meta = {}) {
@@ -24,8 +24,8 @@ export class Logger {
       await fs.appendFile(this.logFile, JSON.stringify(entry) + "\n", "utf8");
     } catch {}
 
-    if (level === "error" || process.env.FLUXER_DEBUG) {
-      process.stderr.write(`[FLUXER ${entry.level}] ${message}\n`);
+    if (level === "error" || process.env.AERO_HOST_DEBUG || process.env.FLUXER_DEBUG) {
+      process.stderr.write(`[AERO_HOST ${entry.level}] ${message}\n`);
     }
   }
 

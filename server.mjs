@@ -22,7 +22,7 @@ export async function startServer() {
 
   const mcpServer = new Server(
     {
-      name: "Fluxer_XZ",
+      name: "Aero_Host_Suite",
       version: getVersion(),
     },
     {
@@ -146,7 +146,7 @@ export async function startServer() {
 // Auto-run if executed directly
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   startServer().catch((err) => {
-    process.stderr.write(`[FLUXER XZ FATAL] ${err.stack || err.message}\n`);
+    process.stderr.write(`[AERO HOST SUITE FATAL] ${err.stack || err.message}\n`);
     process.exit(1);
   });
 }

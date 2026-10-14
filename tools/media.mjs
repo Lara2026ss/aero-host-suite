@@ -1,5 +1,5 @@
-/**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+﻿/**
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * tools/media.mjs — Unified Screen Capture & Print Management Engine
  */
 import fs from "node:fs/promises";
@@ -64,22 +64,23 @@ export function createMediaDomain({ runtime }) {
         await ensureCapturesDir();
         const targetFile = outputPath ? path.resolve(outputPath) : path.join(capturesDir, `window_${Date.now()}.png`);
 
-        // Fallback or window capture via PowerShell
+        // Safe window capture via PowerShell parameter binding
         const psScript = `
+          param([string]$targetQuery, [string]$outPath)
           Add-Type -AssemblyName System.Windows.Forms
           Add-Type -AssemblyName System.Drawing
-          $proc = Get-Process | Where-Object { $_.MainWindowTitle -like "*${query}*" -and $_.MainWindowHandle -ne 0 } | Select-Object -First 1
-          if (-not $proc) { throw "Ventana con título '$query' no encontrada." }
+          $proc = Get-Process | Where-Object { $_.MainWindowTitle -like "*$targetQuery*" -and $_.MainWindowHandle -ne 0 } | Select-Object -First 1
+          if (-not $proc) { throw "Ventana con título '$targetQuery' no encontrada." }
           $bounds = [System.Windows.Forms.Screen]::PrimaryScreen.Bounds
           $bitmap = New-Object System.Drawing.Bitmap($bounds.Width, $bounds.Height)
           $graphics = [System.Drawing.Graphics]::FromImage($bitmap)
           $graphics.CopyFromScreen($bounds.Location, [System.Drawing.Point]::Empty, $bounds.Size)
-          $bitmap.Save('${targetFile.replace(/\\/g, "\\\\")}', [System.Drawing.Imaging.ImageFormat]::Png)
+          $bitmap.Save($outPath, [System.Drawing.Imaging.ImageFormat]::Png)
           $graphics.Dispose()
           $bitmap.Dispose()
         `;
 
-        await execAsync(`powershell.exe -NoProfile -Command "${psScript.replace(/"/g, '`"')}"`);
+        await execAsync(`powershell.exe -NoProfile -Command "${psScript.replace(/"/g, '`"')}" -targetQuery "${query.replace(/"/g, '`"')}" -outPath "${targetFile.replace(/"/g, '`"')}"`);
         const stat = await fs.stat(targetFile);
         return { ok: true, type: "window", query, path: targetFile, bytes: stat.size };
       },
@@ -122,17 +123,19 @@ export function createMediaDomain({ runtime }) {
         const fullPath = path.resolve(filePath);
         await fs.access(fullPath);
 
-        const printerArg = printerName ? `-PrinterName "${printerName}"` : "";
-        const cmd = `Start-Process -FilePath "${fullPath}" -Verb PrintTo ${printerArg} -PassThru`;
+        const safePath = fullPath.replace(/[`"$]/g, "");
+        const safePrinter = printerName ? printerName.replace(/[`"$]/g, "") : null;
+        const printerArg = safePrinter ? `-PrinterName "${safePrinter}"` : "";
+        const cmd = `Start-Process -FilePath "${safePath}" -Verb PrintTo ${printerArg} -PassThru`;
 
         try {
           await execAsync(`powershell.exe -NoProfile -Command "${cmd}"`);
-          return { ok: true, file: fullPath, printer: printerName || "Default", copies };
+          return { ok: true, file: fullPath, printer: safePrinter || "Default", copies };
         } catch (e) {
           // Fallback to Out-Printer
-          const fallback = `Get-Content "${fullPath}" | Out-Printer ${printerArg}`;
+          const fallback = `Get-Content "${safePath}" | Out-Printer ${printerArg}`;
           await execAsync(`powershell.exe -NoProfile -Command "${fallback}"`);
-          return { ok: true, file: fullPath, printer: printerName || "Default", fallback: true };
+          return { ok: true, file: fullPath, printer: safePrinter || "Default", fallback: true };
         }
       },
 
@@ -154,9 +157,12 @@ export function createMediaDomain({ runtime }) {
 
       async cancel_print_job({ jobId, printerName }) {
         if (!jobId || !printerName) throw new Error("Parámetros 'jobId' y 'printerName' requeridos.");
-        const cmd = `Remove-PrintJob -PrinterName "${printerName}" -ID ${parseInt(jobId, 10)}`;
+        const cleanJobId = parseInt(jobId, 10);
+        if (isNaN(cleanJobId)) throw new Error("Parámetro 'jobId' debe ser numérico.");
+        const safePrinter = printerName.replace(/[`"$]/g, "");
+        const cmd = `Remove-PrintJob -PrinterName "${safePrinter}" -ID ${cleanJobId}`;
         await execAsync(`powershell.exe -NoProfile -Command "${cmd}"`);
-        return { ok: true, message: `Trabajo de impresión '${jobId}' cancelado en '${printerName}'.` };
+        return { ok: true, message: `Trabajo de impresión '${cleanJobId}' cancelado en '${safePrinter}'.` };
       }
     }
   };

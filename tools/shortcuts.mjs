@@ -1,10 +1,10 @@
 /**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * tools/shortcuts.mjs — Next-Gen Multi-step Macro & Template Engine
  */
 import fs from "node:fs/promises";
 import path from "node:path";
-import { security, RISK_LEVELS } from "../core/permissions.mjs";
+import { RISK_LEVELS } from "../core/permissions.mjs";
 
 export function createShortcutsDomain({ runtime, router }) {
   let shortcutsDir = path.resolve(runtime?.dirs?.shortcuts || path.join(process.cwd(), "data", "shortcuts"));
@@ -39,14 +39,15 @@ export function createShortcutsDomain({ runtime, router }) {
   }
 
   async function getShortcutPath(id) {
-    const safeId = String(id).replace(/[^a-zA-Z0-9_\-]/g, "");
+    const safeId = String(id || "").replace(/[^a-zA-Z0-9_\-]/g, "");
+    if (!safeId) throw new Error("ID de shortcut inválido: debe contener caracteres alfanuméricos.");
     return path.join(shortcutsDir, `${safeId}.json`);
   }
 
   async function loadShortcut(id) {
     const filePath = await getShortcutPath(id);
     const content = await fs.readFile(filePath, "utf8");
-    return JSON.parse(content);
+    return JSON.parse(content.replace(/^\uFEFF/, ''));
   }
 
   // Pre-seed 5-8 safe production starter shortcuts
@@ -69,7 +70,7 @@ export function createShortcutsDomain({ runtime, router }) {
         description: "Crea la estructura básica de un nuevo módulo con README e index.js",
         params: {
           name: { type: "string", default: "sample-module", description: "Nombre del módulo" },
-          author: { type: "string", default: "Fluxer Developer", description: "Autor" }
+          author: { type: "string", default: "Aero Host Developer", description: "Autor" }
         },
         steps: [
           {
@@ -86,7 +87,7 @@ export function createShortcutsDomain({ runtime, router }) {
             action: "write_file",
             args: {
               path: "src/{{name}}/README.md",
-              content: "# Módulo {{name}}\n\nAutor: {{author}}\n\nDescripción inicial generada por Fluxer XZ.\n"
+              content: "# Módulo {{name}}\n\nAutor: {{author}}\n\nDescripción inicial generada por Aero Host Suite.\n"
             },
             onError: "rollback"
           }
@@ -127,7 +128,7 @@ export function createShortcutsDomain({ runtime, router }) {
         name: "Web Search and Extract",
         description: "Busca información relevante y extrae contenido resumido",
         params: {
-          query: { type: "string", default: "Fluxer XZ MCP", description: "Consulta de búsqueda" }
+          query: { type: "string", default: "Aero Host Suite MCP", description: "Consulta de búsqueda" }
         },
         steps: [
           { tool: "web", action: "search_web", args: { query: "{{query}}", limit: 3 } }
@@ -342,6 +343,10 @@ export function createShortcutsDomain({ runtime, router }) {
             } else {
               // Direct dispatch fallback if standalone
               result = { ok: true, simulated: false, output: `Executed ${item.tool}.${item.action}` };
+            }
+
+            if (result && result.ok === false) {
+              throw new Error(result.error || `La acción '${item.tool}.${item.action}' retornó ok: false`);
             }
 
             // Register rollback if files were written

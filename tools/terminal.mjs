@@ -1,5 +1,5 @@
 /**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * tools/terminal.mjs — High-Performance Process and Terminal Execution Engine
  */
 import { exec, spawn } from "node:child_process";
@@ -17,19 +17,24 @@ export function createTerminalDomain({ runtime }) {
     name: "terminal",
     description: "Ejecución de comandos, procesos en segundo plano y scripts de sistema.",
     permissions: {
-      run_command: RISK_LEVELS.HIGH,
-      run_background: RISK_LEVELS.HIGH,
+      run_command: RISK_LEVELS.LOW,
+      run_background: RISK_LEVELS.LOW,
       list_jobs: RISK_LEVELS.LOW,
-      kill_job: RISK_LEVELS.HIGH,
-      run_script: RISK_LEVELS.HIGH
+      kill_job: RISK_LEVELS.LOW,
+      run_script: RISK_LEVELS.LOW
     },
     actions: {
-      async run_command({ command, cwd = process.cwd(), timeoutMs = 30000, maxOutputLines = 80 }) {
+      async run_command(args = {}) {
+        const command = args.command || args.cmd || args.script || args.code;
+        const cwd = args.cwd || process.cwd();
+        const timeoutMs = args.timeoutMs ? Number(args.timeoutMs) : 60000;
+        const maxOutputLines = args.maxOutputLines ? Number(args.maxOutputLines) : 120;
+
         if (!command) throw new Error("Parámetro 'command' requerido.");
 
         return new Promise((resolve) => {
           const shell = process.platform === "win32" ? "powershell.exe" : "/bin/bash";
-          const shellArgs = process.platform === "win32" ? ["-NoProfile", "-Command", command] : ["-c", command];
+          const shellArgs = process.platform === "win32" ? ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command] : ["-c", command];
 
           const start = Date.now();
           const child = spawn(shell, shellArgs, { cwd, windowsHide: true });
@@ -74,12 +79,14 @@ export function createTerminalDomain({ runtime }) {
         });
       },
 
-      async run_background({ command, cwd = process.cwd() }) {
+      async run_background(args = {}) {
+        const command = args.command || args.cmd || args.script || args.code;
+        const cwd = args.cwd || process.cwd();
         if (!command) throw new Error("Parámetro 'command' requerido.");
         jobCounter++;
         const jobId = `job#${jobCounter}`;
         const shell = process.platform === "win32" ? "powershell.exe" : "/bin/bash";
-        const shellArgs = process.platform === "win32" ? ["-NoProfile", "-Command", command] : ["-c", command];
+        const shellArgs = process.platform === "win32" ? ["-NoProfile", "-NonInteractive", "-ExecutionPolicy", "Bypass", "-Command", command] : ["-c", command];
 
         const child = spawn(shell, shellArgs, { cwd, windowsHide: true, detached: true });
         const jobInfo = {
@@ -120,7 +127,8 @@ export function createTerminalDomain({ runtime }) {
         return { ok: true, count: list.length, jobs: list };
       },
 
-      async kill_job({ jobId }) {
+      async kill_job(args = {}) {
+        const jobId = args.jobId || args.id;
         if (!jobId) throw new Error("Parámetro 'jobId' requerido.");
         const job = jobs.get(jobId);
         if (!job) throw new Error(`Trabajo '${jobId}' no encontrado.`);
@@ -136,18 +144,21 @@ export function createTerminalDomain({ runtime }) {
         }
       },
 
-      async run_script({ script, language = "powershell", args = [] }) {
+      async run_script(args = {}) {
+        const script = args.script || args.code || args.content;
+        const language = args.language || args.lang || "powershell";
+        const scriptArgs = args.args || [];
         if (!script) throw new Error("Contenido de 'script' requerido.");
         const ext = language === "cmd" ? ".bat" : ".ps1";
-        const tempPath = path.join(os.tmpdir(), `fluxer_script_${Date.now()}${ext}`);
+        const tempPath = path.join(os.tmpdir(), `aero_host_script_${Date.now()}${ext}`);
         await fs.writeFile(tempPath, script, "utf8");
 
         try {
           let command = "";
           if (language === "cmd") {
-            command = `cmd.exe /c "${tempPath}" ${args.join(" ")}`;
+            command = `cmd.exe /c "${tempPath}" ${scriptArgs.join(" ")}`;
           } else {
-            command = `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${tempPath}" ${args.join(" ")}`;
+            command = `powershell.exe -NoProfile -ExecutionPolicy Bypass -File "${tempPath}" ${scriptArgs.join(" ")}`;
           }
 
           const res = await this.run_command({ command });

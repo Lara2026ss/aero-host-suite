@@ -1,5 +1,5 @@
 /**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2
  * updater/updater.mjs — Autonomous Zero-Dependency Remote Updater Engine
  */
 import fs from "node:fs/promises";
@@ -16,7 +16,7 @@ export class UpdaterEngine {
   constructor(options = {}) {
     this.rootDir = options.rootDir || ROOT_DIR;
     this.repoOwner = options.repoOwner || "Lara2026ss";
-    this.repoName = options.repoName || "aero-fluxer-x";
+    this.repoName = options.repoName || process.env.AERO_HOST_REPO_NAME || "aero-host-suite";
     this.apiBase = options.apiBase || "https://api.github.com";
     this.stagingDir = path.join(this.rootDir, "data", "staging");
     this.backupDir = path.join(this.rootDir, "data", "backups");
@@ -70,7 +70,11 @@ export class UpdaterEngine {
   }
 
   async check(endpointOverride = null) {
-    const currentVersion = getVersion();
+    let currentVersion = getVersion();
+    try {
+      const vFile = path.join(this.rootDir, "VERSION");
+      currentVersion = (await fs.readFile(vFile, "utf8")).trim();
+    } catch {}
     let releaseData = null;
 
     if (endpointOverride) {
@@ -78,7 +82,7 @@ export class UpdaterEngine {
         releaseData = endpointOverride;
       } else {
         const res = await fetch(endpointOverride, {
-          headers: { "User-Agent": "Fluxer-XZ-Updater" }
+          headers: { "User-Agent": "Aero-Host-Updater" }
         });
         if (!res.ok) throw new Error(`HTTP ${res.status} checking update`);
         releaseData = await res.json();
@@ -86,13 +90,13 @@ export class UpdaterEngine {
     } else {
       const url = `${this.apiBase}/repos/${this.repoOwner}/${this.repoName}/releases/latest`;
       let res = await fetch(url, {
-        headers: { "User-Agent": "Fluxer-XZ-Updater" }
+        headers: { "User-Agent": "Aero-Host-Updater" }
       });
       if (!res.ok) {
         // Fallback to /releases list (catches recently published releases before GitHub latest-tag indexer runs)
         const listUrl = `${this.apiBase}/repos/${this.repoOwner}/${this.repoName}/releases`;
         const listRes = await fetch(listUrl, {
-          headers: { "User-Agent": "Fluxer-XZ-Updater" }
+          headers: { "User-Agent": "Aero-Host-Updater" }
         });
         if (listRes.ok) {
           const list = await listRes.json();
@@ -147,7 +151,7 @@ export class UpdaterEngine {
     }
 
     // 1. Download to staging
-    const pkgFilename = `fluxer-${targetVersion}.zip`;
+    const pkgFilename = `aero-host-${targetVersion}.zip`;
     const stagingPkgPath = path.join(this.stagingDir, pkgFilename);
 
     if (options.localPackagePath) {

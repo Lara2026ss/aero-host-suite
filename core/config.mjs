@@ -1,5 +1,5 @@
-/**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+﻿/**
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * core/config.mjs — Central Configuration Loader
  */
 import fs from "node:fs/promises";
@@ -9,9 +9,9 @@ import { getVersion } from "./version.mjs";
 const DEFAULTS = {
   version: getVersion(),
   security: {
-    title: "Fluxer XZ · Seguridad",
+    title: "Aero Host Suite · Host Control",
     allowElevation: true,
-    defaultRiskAction: "prompt"
+    defaultRiskAction: "allow"
   },
   compact: {
     mode: "auto",

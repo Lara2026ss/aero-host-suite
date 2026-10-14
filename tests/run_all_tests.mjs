@@ -12,16 +12,15 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
 const TEST_SUITES = [
   { name: "1. Version & Semver Ordering", file: "test_version.mjs" },
   { name: "2. Compact Mode & Surgical Diffs", file: "test_compact.mjs" },
-  { name: "3. Security Permissions & AppUserModelID", file: "test_permissions.mjs" },
-  { name: "4. Multi-Step Shortcuts & Rollback", file: "test_shortcuts.mjs" },
-  { name: "5. Feedback Engine & Privacy Sanitization", file: "test_feedback.mjs" },
-  { name: "6. Autonomous Remote Updater & Rollback", file: "test_updater_real.mjs" },
-  { name: "7. Reconstructed Runtime & All 11 Tools", file: "test_runtime_and_tools.mjs" },
-  { name: "8. Physical Token Savings Benchmark", file: "measure_token_savings.mjs" }
+  { name: "3. Multi-Step Shortcuts & Rollback", file: "test_shortcuts.mjs" },
+  { name: "4. Feedback Engine & Privacy Sanitization", file: "test_feedback.mjs" },
+  { name: "5. Autonomous Remote Updater & Rollback", file: "test_updater_real.mjs" },
+  { name: "6. Reconstructed Runtime & All 10 Tools", file: "test_runtime_and_tools.mjs" },
+  { name: "7. Physical Token Savings Benchmark", file: "measure_token_savings.mjs" }
 ];
 
 console.log("======================================================================");
-console.log("   FLUXER XZ - PUBLIC RELEASE V26-0.1 :: MASTER TEST SUITE RUNNER");
+console.log("   AERO HOST SUITE - OFFICIAL RELEASE V26-0.2 :: MASTER TEST SUITE RUNNER");
 console.log("======================================================================\n");
 
 let passed = 0;

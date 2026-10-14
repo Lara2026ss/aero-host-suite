@@ -1,5 +1,5 @@
-/**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+﻿/**
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * tools/web.mjs — High-Efficiency Web Search, Content Extraction & Downloads
  */
 import fs from "node:fs/promises";
@@ -35,7 +35,13 @@ export function createWebDomain({ runtime }) {
         const resultRegex = /<a\s+class="result__url"\s+href="([^"]+)">[\s\S]*?<\/a>[\s\S]*?<a\s+class="result__snippet[^"]*"\s+href="[^"]*">([\s\S]*?)<\/a>/gi;
         let match;
         while ((match = resultRegex.exec(html)) !== null && results.length < limit) {
-          const rawUrl = match[1].trim();
+          let rawUrl = match[1].trim();
+          if (rawUrl.includes("uddg=")) {
+            const uddgMatch = rawUrl.match(/uddg=([^&]+)/);
+            if (uddgMatch) {
+              try { rawUrl = decodeURIComponent(uddgMatch[1]); } catch {}
+            }
+          }
           const cleanSnippet = match[2].replace(/<[^>]+>/g, "").replace(/\s+/g, " ").trim();
           results.push({
             url: rawUrl.startsWith("//") ? `https:${rawUrl}` : rawUrl,

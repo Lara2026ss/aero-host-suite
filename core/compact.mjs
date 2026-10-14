@@ -1,5 +1,5 @@
-/**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+﻿/**
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * core/compact.mjs — High-Efficiency Token Optimization Engine
  * 
  * ZERO GIMMICKS: NO binary, NO morse, NO hex, NO gzip+base64.

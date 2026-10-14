@@ -16,7 +16,7 @@ await fs.mkdir(sandboxDir, { recursive: true });
 
 // 1. Initial clean install of V26-0.1 in sandbox
 await fs.writeFile(path.join(sandboxDir, "VERSION"), "V26-0.1\n", "utf8");
-await fs.writeFile(path.join(sandboxDir, "package.json"), JSON.stringify({ name: "fluxer-xz", version: "26.0.1" }), "utf8");
+await fs.writeFile(path.join(sandboxDir, "package.json"), JSON.stringify({ name: "aero-host-suite", version: "26.0.1" }), "utf8");
 await fs.writeFile(path.join(sandboxDir, "user_config.json"), JSON.stringify({ customSettings: true }), "utf8");
 
 // 1. Prepare physical test archive for V26-0.2
@@ -24,7 +24,7 @@ const updateSourceDir = path.join(process.cwd(), "data", "test_v26_0_2_src");
 await fs.rm(updateSourceDir, { recursive: true, force: true });
 await fs.mkdir(updateSourceDir, { recursive: true });
 await fs.writeFile(path.join(updateSourceDir, "VERSION"), "V26-0.2\n", "utf8");
-await fs.writeFile(path.join(updateSourceDir, "package.json"), JSON.stringify({ name: "fluxer-xz", version: "26.0.2" }), "utf8");
+await fs.writeFile(path.join(updateSourceDir, "package.json"), JSON.stringify({ name: "aero-host-suite", version: "26.0.2" }), "utf8");
 await fs.writeFile(path.join(updateSourceDir, "update_marker.txt"), "Update to V26-0.2 verified physical\n", "utf8");
 
 const testZipPath = path.join(process.cwd(), "data", "test_v26_0_2.zip");
@@ -40,11 +40,11 @@ const server = http.createServer((req, res) => {
     res.writeHead(200, { "Content-Type": "application/json" });
     res.end(JSON.stringify({
       tag_name: "v26.0.2",
-      name: "FLUXER XZ - PUBLIC RELEASE V26-0.2",
+      name: "AERO HOST SUITE - OFFICIAL RELEASE V26-0.2",
       assets: [
         {
-          name: "fluxer-v26.0.2.zip",
-          browser_download_url: `http://127.0.0.1:${server.address().port}/download/fluxer-v26.0.2.zip`
+          name: "aero-host-v26.0.2.zip",
+          browser_download_url: `http://127.0.0.1:${server.address().port}/download/aero-host-v26.0.2.zip`
         }
       ]
     }));

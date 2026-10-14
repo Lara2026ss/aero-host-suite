@@ -27,7 +27,7 @@ const sendRes = await domain.actions.send_feedback({
 
 assert.equal(sendRes.ok, true);
 assert.ok(sendRes.id);
-assert.match(sendRes.githubIssueUrl, /https:\/\/github\.com\/Lara2026ss\/aero-fluxer-x\/issues\/new/);
+assert.match(sendRes.githubIssueUrl, /https:\/\/github\.com\/Lara2026ss\/(aero-host-suite|aero-fluxer-x)\/issues\/new/);
 console.log("[1] Feedback sent and GitHub URL generated:", sendRes.id);
 
 // Check that personal user path was sanitized

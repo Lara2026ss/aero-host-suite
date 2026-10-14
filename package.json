@@ -1,7 +1,7 @@
 {
-  "name": "fluxer-xz",
-  "version": "26.0.1",
-  "description": "FLUXER XZ - PUBLIC RELEASE V26-0.1 — Next-Generation MCP Server for Windows with Compact Mode, Native Security, Multi-step Shortcuts & Autonomous Remote Updates",
+  "name": "aero-host-suite",
+  "version": "26.0.2",
+  "description": "Aero Host Suite — Next-Generation MCP Server for Windows with Compact Mode, Multi-step Shortcuts & Autonomous Remote Updates",
   "type": "module",
   "main": "server.mjs",
   "engines": {
@@ -24,13 +24,13 @@
   },
   "keywords": [
     "mcp",
-    "fluxer-xz",
+    "aero-host-suite",
+    "aero-host",
     "windows",
-    "security",
     "compact-mode",
     "automation",
     "ai-agent"
   ],
-  "author": "Fluxer Core Team",
+  "author": "Aero Core Team",
   "license": "MIT"
 }

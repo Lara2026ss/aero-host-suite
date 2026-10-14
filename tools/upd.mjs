@@ -1,5 +1,5 @@
-/**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+﻿/**
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * tools/upd.mjs — Official Tool Interface for Autonomous Remote Updates
  */
 import { UpdaterEngine } from "../updater/updater.mjs";

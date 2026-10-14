@@ -1,5 +1,5 @@
-/**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+﻿/**
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * tools/feedback.mjs — Privacy-Safe Feedback and GitHub Issue Bridge
  */
 import fs from "node:fs/promises";
@@ -11,7 +11,7 @@ import { RISK_LEVELS } from "../core/permissions.mjs";
 
 export function createFeedbackDomain({ runtime }) {
   const feedbackDir = path.resolve(runtime?.dirs?.feedback || path.join(process.cwd(), "data", "feedback"));
-  const officialRepo = "Lara2026ss/aero-fluxer-x";
+  const officialRepo = process.env.AERO_HOST_REPO || "Lara2026ss/aero-host-suite";
 
   async function ensureDir() {
     await fs.mkdir(feedbackDir, { recursive: true });
@@ -47,7 +47,7 @@ ${feedback.severity}
 ${feedback.description}
 
 ### Contexto del Sistema
-- **Versión Fluxer XZ**: ${feedback.version}
+- **Versión Aero Host Suite**: ${feedback.version}
 - **Sistema Operativo**: ${feedback.platform} (${feedback.arch})
 - **Fecha**: ${feedback.createdAt}
 ${Object.keys(feedback.context || {}).length ? `\n### Datos Adicionales (Anonimizados)\n\`\`\`json\n${JSON.stringify(feedback.context, null, 2)}\n\`\`\`` : ""}
@@ -132,7 +132,8 @@ ${Object.keys(feedback.context || {}).length ? `\n### Datos Adicionales (Anonimi
 
       async view_feedback({ id }) {
         if (!id) throw new Error("ID de feedback requerido.");
-        const filePath = path.join(feedbackDir, `${id}.json`);
+        const cleanId = String(id).replace(/[^a-zA-Z0-9_\-]/g, "");
+        const filePath = path.join(feedbackDir, `${cleanId}.json`);
         const raw = await fs.readFile(filePath, "utf8");
         const item = JSON.parse(raw);
         return { ok: true, feedback: item, githubIssueUrl: generateIssueUrl(item) };
@@ -140,7 +141,8 @@ ${Object.keys(feedback.context || {}).length ? `\n### Datos Adicionales (Anonimi
 
       async update_status({ id, status }) {
         if (!id || !status) throw new Error("ID y status son requeridos.");
-        const filePath = path.join(feedbackDir, `${id}.json`);
+        const cleanId = String(id).replace(/[^a-zA-Z0-9_\-]/g, "");
+        const filePath = path.join(feedbackDir, `${cleanId}.json`);
         const raw = await fs.readFile(filePath, "utf8");
         const item = JSON.parse(raw);
         item.status = status;
@@ -151,7 +153,8 @@ ${Object.keys(feedback.context || {}).length ? `\n### Datos Adicionales (Anonimi
 
       async delete_feedback({ id }) {
         if (!id) throw new Error("ID de feedback requerido.");
-        const filePath = path.join(feedbackDir, `${id}.json`);
+        const cleanId = String(id).replace(/[^a-zA-Z0-9_\-]/g, "");
+        const filePath = path.join(feedbackDir, `${cleanId}.json`);
         await fs.unlink(filePath);
         return { ok: true, message: `Feedback '${id}' eliminado correctamente.` };
       },

@@ -1,4 +1,7 @@
 @echo off
 setlocal
-set "SCRIPT_DIR=%~dp0"
-call "%SCRIPT_DIR%FLUXER_XZ_LAUNCHER.bat" %*
+cd /d "%~dp0"
+echo [*] Installing Aero Host Suite dependencies...
+call npm install --no-audit --no-fund
+echo [*] Running self-test suite...
+call node tests/run_all_tests.mjs

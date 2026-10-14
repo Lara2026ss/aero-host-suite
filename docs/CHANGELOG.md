@@ -1,9 +1,37 @@
-# CHANGELOG — FLUXER XZ
+# CHANGELOG — Aero Host Suite
 
-All notable changes to FLUXER XZ will be documented in this file.
+All notable changes to Aero Host Suite will be documented in this file.
 
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and follows the product versioning standard `V{YEAR}-{VERSION}` (internally semver mapped).
+
+---
+
+## [V26-0.2 - ECOSYSTEM MIGRATION] — 2026-10-14
+
+### Changed
+- **Ecosystem-Wide Identity Migration**:
+  - Rebranded product identity from FLUXER XZ to **Aero Host Suite** (`aero-host-suite`).
+  - Updated MCP server identifier to `Aero_Host_Suite` with backward-compatibility aliases for legacy client configurations.
+  - Purged obsolete desktop launcher (`FluxerXZ.exe`, `FLUXER_XZ_LAUNCHER.bat`, `FLUXER_XZ_LAUNCHER.ps1`), toast notification subsystem, and custom security subsystem.
+  - Consolidated architecture strictly to 10 production tools: `files`, `terminal`, `system`, `web`, `documents`, `media`, `shortcuts`, `upd`, `feedback`, `guide`.
+  - Updated all client documentation, schemas, and test suites.
+
+## [V26-0.2] — 2026-10-09
+
+### Fixed
+- **PowerShell Parameter Injection Hardening**:
+  - `tools/media.mjs`: `capture_window`, `print_document`, and `cancel_print_job` now rigorously sanitize process titles, file paths, and printer names, preventing command interpolation and injection.
+  - `tools/system.mjs`: `kill_process` and `manage_service` now strip shell meta-characters and validate numeric PIDs before command execution.
+- **Shortcuts Execution Engine Integrity**:
+  - `tools/shortcuts.mjs`: Fixed silent pass bug where individual step failures returning `{ ok: false }` were improperly recorded as `status: "OK"`. Macro execution now accurately triggers `onError: "rollback"` or halts execution upon step failure.
+  - Enforced input validation in `getShortcutPath` ensuring non-empty alphanumeric identifier strings.
+- **Privacy & Traversal Hardening**:
+  - `tools/feedback.mjs`: Sanitized identifier paths in `view_feedback`, `update_status`, and `delete_feedback` preventing directory traversal attempts.
+- **Filesystem Cross-Partition & Cross-Drive Support**:
+  - `tools/files.mjs`: Added `EXDEV` error catching with copy-and-unlink fallback in `move_path` and `delete_path` (trash mode), enabling robust operations across distinct disk partitions and USB removable drives.
+- **DuckDuckGo URL Unwrapping**:
+  - `tools/web.mjs`: Added automatic decoding of `uddg=` redirect query parameters to yield clean target URLs directly.
 
 ---
 

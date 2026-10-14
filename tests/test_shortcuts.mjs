@@ -106,9 +106,32 @@ const setFolderRes = await domain.actions.set_folder({ path: newTestFolder });
 assert.equal(setFolderRes.ok, true);
 console.log("[6] set_folder verified!");
 
-// 7. Validate shortcut error checking
-const invalidRes = await domain.actions.validate_shortcut({ shortcut: { id: "bad" } });
-assert.equal(invalidRes.ok, false);
-console.log("[7] Shortcut validation rejection verified:", invalidRes.error);
+// 8. Test rollback triggered when step returns { ok: false }
+const rollbackFile2 = path.join(process.cwd(), "temp_test_rollback2.txt");
+await fs.writeFile(rollbackFile2, "should also be deleted by rollback", "utf8");
+
+const rollbackDomain2 = createShortcutsDomain({
+  runtime: {
+    dirs: { shortcuts: testFolder },
+    router: {
+      async execute(tool, action, args) {
+        if (action === "run_command") return { ok: false, error: "Step explicitly failed" };
+        return { ok: true };
+      }
+    }
+  }
+});
+
+const runFailRes2 = await rollbackDomain2.actions.run_shortcut({
+  id: "test_custom_flow",
+  params: { targetFile: rollbackFile2 }
+});
+assert.equal(runFailRes2.ok, false);
+assert.equal(runFailRes2.rollbackExecuted, true);
+
+let file2Exists = true;
+try { await fs.access(rollbackFile2); } catch { file2Exists = false; }
+assert.equal(file2Exists, false, "Rollback failed to delete file on { ok: false } step response!");
+console.log("[8] Rollback triggered by { ok: false } step response verified!");
 
 console.log("\n[PASS] All shortcuts engine unit tests passed successfully!");

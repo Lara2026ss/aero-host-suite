@@ -1,5 +1,5 @@
-/**
- * FLUXER XZ - PUBLIC RELEASE V26-0.1
+﻿/**
+ * Aero Host Suite - PUBLIC RELEASE V26-0.2-0.1
  * core/version.mjs — Single Source of Truth Version Engine
  */
 import fs from "node:fs";
@@ -71,5 +71,6 @@ export function compareVersions(a, b) {
   return 0;
 }
 
-export const PRODUCT_NAME = "FLUXER XZ - PUBLIC RELEASE";
+export const PRODUCT_NAME = "AERO HOST SUITE - OFFICIAL RELEASE";
+export const LEGACY_PRODUCT_NAME = "Aero Host Suite - PUBLIC RELEASE";
 export const FULL_VERSION_STRING = `${PRODUCT_NAME} ${getVersion()}`;
