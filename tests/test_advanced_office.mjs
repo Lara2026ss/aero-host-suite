@@ -209,6 +209,38 @@ try {
     console.log(` (Word document outline: '${res.title}', ${res.paragraphs} paras, ${res.headings?.length || 0} headings, ${res.pages} pages)`);
   });
 
+  // ── 7. Office Shortcuts Catalog & Ribbon Coverage ─────────────────────────
+  await runStep("get_shortcuts returns comprehensive shortcuts for Word, Excel, PowerPoint", async () => {
+    const allRes = await docDomain.actions.get_shortcuts({ app: "all" });
+    assert.strictEqual(allRes.ok, true);
+    assert.ok(Array.isArray(allRes.apps));
+    assert.ok(allRes.apps.includes("word"));
+    assert.ok(allRes.apps.includes("excel"));
+    assert.ok(allRes.apps.includes("powerpoint"));
+
+    const wordRes = await docDomain.actions.get_shortcuts({ app: "word" });
+    assert.strictEqual(wordRes.ok, true);
+    assert.ok(wordRes.shortcuts.general.length > 0);
+    assert.ok(wordRes.shortcuts.history_and_clipboard.some(s => s.key.includes("Ctrl + Z")));
+    assert.ok(wordRes.shortcuts.formatting.some(s => s.key.includes("Shift + F3")));
+
+    const excelRes = await docDomain.actions.get_shortcuts({ app: "excel" });
+    assert.strictEqual(excelRes.ok, true);
+    assert.ok(excelRes.shortcuts.data_and_formulas.some(s => s.key.includes("Ctrl + Shift + L")));
+
+    const pptRes = await docDomain.actions.get_shortcuts({ app: "powerpoint" });
+    assert.strictEqual(pptRes.ok, true);
+    assert.ok(pptRes.shortcuts.presentation.some(s => s.key.includes("F5")));
+  });
+
+  await runStep("Comprehensive 89-action permissions and dispatcher coverage", async () => {
+    const permKeys = Object.keys(docDomain.permissions);
+    assert.strictEqual(permKeys.length, 89, `Expected 89 actions, got ${permKeys.length}`);
+    for (const key of permKeys) {
+      assert.strictEqual(typeof docDomain.actions[key], "function", `Missing action function for '${key}'`);
+    }
+  });
+
   console.log("\n======================================================================");
   console.log(`   ALL ${passedCount} INTEGRATION TESTS PASSED WITH 100% SUCCESS.`);
   console.log("======================================================================\n");

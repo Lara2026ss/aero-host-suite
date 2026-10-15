@@ -13,6 +13,102 @@ import { fileURLToPath } from "node:url";
 import { headlessEngine } from "./documents/headless.mjs";
 import { THEMES, TEMPLATE_PRESETS } from "./documents/templates.mjs";
 
+export const OFFICE_SHORTCUTS = {
+  word: {
+    general: [
+      { key: "Ctrl + U / Ctrl + N", desc_es: "Crear nuevo documento", desc_en: "Create new document" },
+      { key: "Ctrl + A / Ctrl + O", desc_es: "Abrir documento existente", desc_en: "Open document" },
+      { key: "Ctrl + G / Ctrl + S", desc_es: "Guardar documento", desc_en: "Save document" },
+      { key: "F12", desc_es: "Guardar como...", desc_en: "Save As" },
+      { key: "Ctrl + P", desc_es: "Imprimir / Vista previa de impresión", desc_en: "Print / Print Preview" },
+      { key: "Ctrl + R / Ctrl + W", desc_es: "Cerrar documento activo", desc_en: "Close active document" },
+    ],
+    history_and_clipboard: [
+      { key: "Ctrl + Z", desc_es: "Deshacer la última acción", desc_en: "Undo last action" },
+      { key: "Ctrl + Y", desc_es: "Rehacer la última acción deshecha", desc_en: "Redo last undone action" },
+      { key: "Ctrl + C", desc_es: "Copiar texto o elemento seleccionado", desc_en: "Copy selection" },
+      { key: "Ctrl + X", desc_es: "Cortar texto o elemento seleccionado", desc_en: "Cut selection" },
+      { key: "Ctrl + V", desc_es: "Pegar contenido del portapapeles", desc_en: "Paste clipboard content" },
+      { key: "Ctrl + Shift + V", desc_es: "Pegar solo texto / Pegar formato", desc_en: "Paste format / plain text" },
+      { key: "Ctrl + E / Ctrl + A", desc_es: "Seleccionar todo el documento", desc_en: "Select all" },
+    ],
+    formatting: [
+      { key: "Ctrl + N / Ctrl + B", desc_es: "Aplicar o quitar negrita", desc_en: "Bold toggle" },
+      { key: "Ctrl + K / Ctrl + I", desc_es: "Aplicar o quitar cursiva", desc_en: "Italic toggle" },
+      { key: "Ctrl + S / Ctrl + U", desc_es: "Aplicar o quitar subrayado", desc_en: "Underline toggle" },
+      { key: "Shift + F3", desc_es: "Cambiar mayúsculas, minúsculas y tipo título", desc_en: "Change case (upper, lower, title)" },
+      { key: "Ctrl + Barra Espaciadora", desc_es: "Borrar todo el formato del texto seleccionado", desc_en: "Clear formatting" },
+      { key: "Ctrl + Shift + >", desc_es: "Aumentar tamaño de fuente", desc_en: "Increase font size" },
+      { key: "Ctrl + Shift + <", desc_es: "Disminuir tamaño de fuente", desc_en: "Decrease font size" },
+    ],
+    alignment_and_spacing: [
+      { key: "Ctrl + T / Ctrl + E", desc_es: "Centrar párrafo", desc_en: "Center alignment" },
+      { key: "Ctrl + Q / Ctrl + L", desc_es: "Alinear párrafo a la izquierda", desc_en: "Align left" },
+      { key: "Ctrl + D / Ctrl + R", desc_es: "Alinear párrafo a la derecha", desc_en: "Align right" },
+      { key: "Ctrl + J", desc_es: "Justificar párrafo", desc_en: "Justify paragraph" },
+      { key: "Ctrl + 1", desc_es: "Interlineado simple (1.0)", desc_en: "Single line spacing" },
+      { key: "Ctrl + 2", desc_es: "Interlineado doble (2.0)", desc_en: "Double line spacing" },
+      { key: "Ctrl + 5", desc_es: "Interlineado 1.5", desc_en: "1.5 line spacing" },
+    ],
+    navigation_and_insert: [
+      { key: "Ctrl + Enter", desc_es: "Insertar salto de página", desc_en: "Insert page break" },
+      { key: "Ctrl + Alt + K", desc_es: "Insertar hipervínculo", desc_en: "Insert hyperlink" },
+      { key: "Ctrl + Alt + L", desc_es: "Insertar viñetas automáticas", desc_en: "Insert bullet list" },
+      { key: "Alt + Ctrl + F", desc_es: "Insertar nota al pie", desc_en: "Insert footnote" },
+      { key: "Ctrl + B / Ctrl + F", desc_es: "Buscar en el documento", desc_en: "Find in document" },
+      { key: "Ctrl + L / Ctrl + H", desc_es: "Reemplazar texto en el documento", desc_en: "Replace text" },
+      { key: "Ctrl + Shift + E", desc_es: "Activar o desactivar Control de Cambios", desc_en: "Track changes toggle" },
+    ]
+  },
+  excel: {
+    general_and_navigation: [
+      { key: "Ctrl + U / Ctrl + N", desc_es: "Nuevo libro de trabajo", desc_en: "New workbook" },
+      { key: "Ctrl + G / Ctrl + S", desc_es: "Guardar libro", desc_en: "Save workbook" },
+      { key: "F12", desc_es: "Guardar como...", desc_en: "Save As" },
+      { key: "Ctrl + Z", desc_es: "Deshacer última acción", desc_en: "Undo last action" },
+      { key: "Ctrl + Y", desc_es: "Rehacer última acción", desc_en: "Redo last action" },
+      { key: "F4", desc_es: "Repetir última acción / Alternar referencias relativas/absolutas ($A$1)", desc_en: "Repeat action / Toggle absolute reference" },
+      { key: "Ctrl + RePág / AvPág", desc_es: "Moverse entre hojas de cálculo", desc_en: "Switch between worksheets" },
+    ],
+    formatting_and_selection: [
+      { key: "Ctrl + 1", desc_es: "Abrir cuadro de diálogo Formato de Celdas", desc_en: "Format Cells dialog" },
+      { key: "Ctrl + Shift + ~", desc_es: "Aplicar formato General de número", desc_en: "General number format" },
+      { key: "Ctrl + Shift + 4 ($)", desc_es: "Aplicar formato Moneda ($)", desc_en: "Currency format" },
+      { key: "Ctrl + Shift + 5 (%)", desc_es: "Aplicar formato Porcentaje (%)", desc_en: "Percentage format" },
+      { key: "Ctrl + Espacio", desc_es: "Seleccionar columna completa", desc_en: "Select entire column" },
+      { key: "Shift + Espacio", desc_es: "Seleccionar fila completa", desc_en: "Select entire row" },
+      { key: "Ctrl + +", desc_es: "Insertar nuevas celdas, filas o columnas", desc_en: "Insert cells, rows, or columns" },
+      { key: "Ctrl + -", desc_es: "Eliminar celdas, filas o columnas seleccionadas", desc_en: "Delete cells, rows, or columns" },
+    ],
+    data_and_formulas: [
+      { key: "Ctrl + Shift + L", desc_es: "Activar o desactivar AutoFiltro en la tabla/rango", desc_en: "Toggle AutoFilter" },
+      { key: "Alt + Flecha Abajo", desc_es: "Desplegar menú de filtro o lista de validación de datos", desc_en: "Open filter/validation dropdown" },
+      { key: "Ctrl + T", desc_es: "Crear tabla oficial estructurada (ListObject)", desc_en: "Create Table" },
+      { key: "Alt + =", desc_es: "Insertar fórmula Autosuma (=SUMA())", desc_en: "AutoSum formula" },
+      { key: "F9", desc_es: "Recalcular todas las fórmulas de todos los libros abiertos", desc_en: "Calculate all formulas" },
+      { key: "Shift + F9", desc_es: "Recalcular la hoja de cálculo activa", desc_en: "Calculate active sheet" },
+      { key: "Shift + F3", desc_es: "Insertar función con el asistente", desc_en: "Insert function wizard" },
+    ]
+  },
+  powerpoint: {
+    presentation: [
+      { key: "F5", desc_es: "Iniciar presentación con diapositivas desde el principio", desc_en: "Start slide show from beginning" },
+      { key: "Shift + F5", desc_es: "Iniciar presentación desde la diapositiva actual", desc_en: "Start slide show from current slide" },
+      { key: "Esc", desc_es: "Finalizar presentación de diapositivas", desc_en: "End slide show" },
+      { key: "B", desc_es: "Pantalla en negro durante la presentación", desc_en: "Black screen during show" },
+      { key: "W", desc_es: "Pantalla en blanco durante la presentación", desc_en: "White screen during show" },
+    ],
+    slide_and_object_design: [
+      { key: "Ctrl + M", desc_es: "Insertar nueva diapositiva", desc_en: "Insert new slide" },
+      { key: "Ctrl + D", desc_es: "Duplicar diapositiva u objeto seleccionado", desc_en: "Duplicate slide or selected object" },
+      { key: "Ctrl + G", desc_es: "Agrupar formas u objetos seleccionados", desc_en: "Group selected objects" },
+      { key: "Ctrl + Shift + G", desc_es: "Desagrupar formas u objetos", desc_en: "Ungroup objects" },
+      { key: "Ctrl + Z", desc_es: "Deshacer última acción", desc_en: "Undo" },
+      { key: "Ctrl + Y", desc_es: "Rehacer última acción", desc_en: "Redo" },
+    ]
+  }
+};
+
 const execFileAsync = promisify(execFile);
 
 export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
@@ -121,6 +217,20 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
         };
       }
       return invokeOfficeCom("inspect_structure", { path: targetPath, app });
+    },
+
+    undo: async (args = {}) => {
+      const app = args.app || "word";
+      const times = args.times ? Number(args.times) : 1;
+      const targetPath = args.path || args.file || "";
+      return invokeOfficeCom("undo", { app, times, path: targetPath });
+    },
+
+    redo: async (args = {}) => {
+      const app = args.app || "word";
+      const times = args.times ? Number(args.times) : 1;
+      const targetPath = args.path || args.file || "";
+      return invokeOfficeCom("redo", { app, times, path: targetPath });
     },
 
     // ── 2. Lifecycle Actions ───────────────────────────────────────────────────
@@ -586,6 +696,293 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       };
     },
 
+    compose_document: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const title = args.title || "Documento";
+      const subtitle = args.subtitle || "";
+      const author = args.author || "Autor";
+      const institution = args.institution || "";
+      const school = args.school || "";
+      const subject = args.subject || "";
+      const group = args.group || "";
+      const date = args.date || new Date().toLocaleDateString("es-ES", { year: "numeric", month: "long", day: "numeric" });
+      const coverPage = args.coverPage !== undefined ? Boolean(args.coverPage) : false;
+      const themeName = args.theme || "modern_blue";
+      const sections = Array.isArray(args.sections) ? args.sections : [];
+      const toc = Boolean(args.toc || args.tableOfContents);
+      const pageNumbers = args.pageNumbers !== undefined ? Boolean(args.pageNumbers) : true;
+      const watermark = args.watermark || null;
+      const mode = args.mode || "live";
+      const save = args.save !== undefined ? Boolean(args.save) : true;
+
+      const theme = THEMES[themeName] || THEMES.modern_blue;
+
+      if (mode === "headless" && targetPath) {
+        return headlessEngine.docxCreate(targetPath, {
+          title,
+          subtitle,
+          author,
+          sections,
+          theme,
+        });
+      }
+
+      if (targetPath) {
+        const createRes = await invokeOfficeCom("create", { app: "word", path: targetPath, visible: true });
+        if (!createRes.ok) return createRes;
+      }
+
+      if (coverPage) {
+        await invokeOfficeCom("insert_cover_page", {
+          path: targetPath,
+          institution: institution || "INSTITUTO POLITÉCNICO NACIONAL",
+          school: school || "CENTRO DE ESTUDIOS CIENTÍFICOS Y TECNOLÓGICOS",
+          subject: subject || "Investigación",
+          title,
+          subtitle,
+          group,
+          team: Array.isArray(author) ? author : [author],
+          date,
+          primaryColor: theme.primary,
+          save: false,
+        });
+      }
+
+      if (watermark) {
+        await invokeOfficeCom("insert_watermark", {
+          path: targetPath,
+          text: typeof watermark === "string" ? watermark : (watermark.text || "CONFIDENCIAL"),
+          color: watermark.color || "#E8E8E8",
+          save: false,
+        });
+      }
+
+      if (toc) {
+        await invokeOfficeCom("insert_table_of_contents", {
+          path: targetPath,
+          pageBreak: true,
+          save: false,
+        });
+      }
+
+      for (const sec of sections) {
+        const heading = sec.heading || sec.title || "";
+        const level = sec.level ? Number(sec.level) : 1;
+        const body = sec.body || sec.content || sec.text || "";
+        const paragraphs = Array.isArray(sec.paragraphs) ? sec.paragraphs : (body ? [body] : []);
+
+        if (heading) {
+          await invokeOfficeCom("append_section", {
+            path: targetPath,
+            heading,
+            headingLevel: level,
+            headingColor: level === 1 ? theme.primary : theme.secondary,
+            pageBreak: Boolean(sec.pageBreak),
+            save: false,
+          });
+        }
+
+        for (const p of paragraphs) {
+          if (p) {
+            await invokeOfficeCom("insert_text", {
+              path: targetPath,
+              text: p,
+              position: "end",
+              fontSize: 11,
+              fontName: theme.fontFamily || "Calibri",
+              lineSpacing: 1.15,
+              spaceAfter: 6,
+              save: false,
+            });
+          }
+        }
+
+        if (sec.callout) {
+          const cText = typeof sec.callout === "string" ? sec.callout : (sec.callout.text || "");
+          const cTitle = typeof sec.callout === "object" ? sec.callout.title : "";
+          if (cText) {
+            await invokeOfficeCom("insert_callout", {
+              path: targetPath,
+              text: cText,
+              title: cTitle,
+              borderColor: theme.primary,
+              bgColor: theme.background || "#F7F9FA",
+              save: false,
+            });
+          }
+        }
+
+        if (Array.isArray(sec.list) && sec.list.length > 0) {
+          await invokeOfficeCom("insert_list", {
+            path: targetPath,
+            items: sec.list,
+            type: sec.listType || "bullet",
+            save: false,
+          });
+        }
+
+        if (Array.isArray(sec.table) && sec.table.length > 0) {
+          await invokeOfficeCom("insert_table", {
+            path: targetPath,
+            rows: sec.table.length,
+            cols: sec.table[0]?.length || 2,
+            data: sec.table,
+            headerBgColor: theme.primary,
+            zebra: true,
+            zebraColor: "#F9FAFB",
+            save: false,
+          });
+        }
+
+        if (sec.divider) {
+          await invokeOfficeCom("insert_divider", {
+            path: targetPath,
+            color: theme.accent || theme.primary,
+            weight: 12,
+            save: false,
+          });
+        }
+      }
+
+      if (pageNumbers) {
+        await invokeOfficeCom("add_page_numbers", {
+          path: targetPath,
+          alignment: "right",
+          firstPage: !coverPage,
+          save: false,
+        });
+      }
+
+      if (args.header || args.footer) {
+        await invokeOfficeCom("insert_header_footer", {
+          path: targetPath,
+          headerText: args.header || "",
+          footerText: args.footer || "",
+          differentFirstPage: coverPage,
+          save: false,
+        });
+      }
+
+      if (save) {
+        await invokeOfficeCom("save", { path: targetPath, app: "word" });
+      }
+
+      return {
+        ok: true,
+        mode: "live_com",
+        composed: true,
+        title,
+        sectionsCount: sections.length,
+        theme: themeName,
+        path: targetPath,
+      };
+    },
+
+    change_case: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const caseType = args.case || args.type || "upper";
+      const search = args.search || "";
+      const paragraph = args.paragraph ? Number(args.paragraph) : null;
+      const save = Boolean(args.save);
+      return invokeOfficeCom("change_case", { path: targetPath, case: caseType, search, paragraph, save });
+    },
+
+    clear_formatting: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const paragraph = args.paragraph ? Number(args.paragraph) : null;
+      const all = Boolean(args.all);
+      const save = Boolean(args.save);
+      return invokeOfficeCom("clear_formatting", { path: targetPath, paragraph, all, save });
+    },
+
+    paragraph_indent: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const action = args.action || "increase";
+      const paragraph = args.paragraph ? Number(args.paragraph) : null;
+      const leftIndent = args.leftIndent ? Number(args.leftIndent) : null;
+      const rightIndent = args.rightIndent ? Number(args.rightIndent) : null;
+      const firstLineIndent = args.firstLineIndent ? Number(args.firstLineIndent) : null;
+      const save = Boolean(args.save);
+      return invokeOfficeCom("paragraph_indent", { path: targetPath, action, paragraph, leftIndent, rightIndent, firstLineIndent, save });
+    },
+
+    paragraph_shading: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const paragraph = args.paragraph ? Number(args.paragraph) : 1;
+      const color = args.color || args.bgColor || "#F2F4F7";
+      const save = Boolean(args.save);
+      return invokeOfficeCom("paragraph_shading", { path: targetPath, paragraph, color, save });
+    },
+
+    insert_textbox: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const text = args.text || args.content || "Text Box";
+      const left = args.left ? Number(args.left) : 100;
+      const top = args.top ? Number(args.top) : 100;
+      const width = args.width ? Number(args.width) : 250;
+      const height = args.height ? Number(args.height) : 80;
+      const fontSize = args.fontSize ? Number(args.fontSize) : null;
+      const fontName = args.fontName || null;
+      const bold = args.bold !== undefined ? Boolean(args.bold) : null;
+      const color = args.color || null;
+      const fillColor = args.fillColor || null;
+      const borderColor = args.borderColor || null;
+      const borderWidth = args.borderWidth ? Number(args.borderWidth) : null;
+      const save = Boolean(args.save);
+      return invokeOfficeCom("insert_textbox", { path: targetPath, text, left, top, width, height, fontSize, fontName, bold, color, fillColor, borderColor, borderWidth, save });
+    },
+
+    insert_watermark: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const text = args.text || "CONFIDENCIAL";
+      const fontName = args.fontName || "Calibri";
+      const fontSize = args.fontSize ? Number(args.fontSize) : 72;
+      const color = args.color || "#D9D9D9";
+      const diagonal = args.diagonal !== undefined ? Boolean(args.diagonal) : true;
+      const save = Boolean(args.save);
+      return invokeOfficeCom("insert_watermark", { path: targetPath, text, fontName, fontSize, color, diagonal, save });
+    },
+
+    set_columns: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const columns = args.columns ? Number(args.columns) : 2;
+      const spacing = args.spacing ? Number(args.spacing) : 36;
+      const lineBetween = Boolean(args.lineBetween);
+      const section = args.section ? Number(args.section) : 1;
+      const save = Boolean(args.save);
+      return invokeOfficeCom("set_columns", { path: targetPath, columns, spacing, lineBetween, section, save });
+    },
+
+    track_changes: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const action = args.action || "toggle";
+      const save = Boolean(args.save);
+      return invokeOfficeCom("track_changes", { path: targetPath, action, save });
+    },
+
+    insert_symbol: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const symbol = args.symbol || args.char || "©";
+      const save = Boolean(args.save);
+      return invokeOfficeCom("insert_symbol", { path: targetPath, symbol, save });
+    },
+
+    insert_caption: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const label = args.label || "Figura";
+      const title = args.title || "Descripción";
+      const position = args.position || "below";
+      const save = Boolean(args.save);
+      return invokeOfficeCom("insert_caption", { path: targetPath, label, title, position, save });
+    },
+
+    insert_bookmark: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const name = args.name || "Bookmark1";
+      const save = Boolean(args.save);
+      return invokeOfficeCom("insert_bookmark", { path: targetPath, name, save });
+    },
+
     insert_shape: async (args = {}) => {
       const app = args.app || "word";
       const targetPath = args.path || args.file || "";
@@ -777,6 +1174,38 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
         top,
         width,
         height,
+        save,
+      });
+    },
+
+    ppt_transition: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const slideIndex = args.slideIndex ? Number(args.slideIndex) : 1;
+      const effect = args.effect || "fade";
+      const duration = args.duration ? Number(args.duration) : null;
+      const all = Boolean(args.all);
+      const save = Boolean(args.save);
+
+      return invokeOfficeCom("ppt_transition", {
+        path: targetPath,
+        slideIndex,
+        effect,
+        duration,
+        all,
+        save,
+      });
+    },
+
+    ppt_align_shapes: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const slideIndex = args.slideIndex ? Number(args.slideIndex) : 1;
+      const align = args.align || "center";
+      const save = Boolean(args.save);
+
+      return invokeOfficeCom("ppt_align_shapes", {
+        path: targetPath,
+        slideIndex,
+        align,
         save,
       });
     },
@@ -998,6 +1427,38 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       const scanErrors = args.scanErrors !== undefined ? Boolean(args.scanErrors) : true;
       const save = Boolean(args.save);
       return invokeOfficeCom("excel_calculate", { path: targetPath, scanErrors, save });
+    },
+
+    excel_auto_filter: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const sheet = args.sheet || "";
+      const range = args.range || "";
+      const field = args.field ? Number(args.field) : null;
+      const criteria = args.criteria || "";
+      const save = Boolean(args.save);
+      return invokeOfficeCom("excel_auto_filter", { path: targetPath, sheet, range, field, criteria, save });
+    },
+
+    excel_data_validation: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const sheet = args.sheet || "";
+      const range = args.range || "";
+      const list = args.list || ["Sí", "No", "Pendiente"];
+      const title = args.title || "";
+      const message = args.message || "";
+      const save = Boolean(args.save);
+      return invokeOfficeCom("excel_data_validation", { path: targetPath, sheet, range, list, title, message, save });
+    },
+
+    excel_sort: async (args = {}) => {
+      const targetPath = args.path || args.file || "";
+      const sheet = args.sheet || "";
+      const range = args.range || "";
+      const keyCell = args.keyCell || "";
+      const descending = Boolean(args.descending);
+      const hasHeader = args.hasHeader !== undefined ? Boolean(args.hasHeader) : true;
+      const save = Boolean(args.save);
+      return invokeOfficeCom("excel_sort", { path: targetPath, sheet, range, keyCell, descending, hasHeader, save });
     },
 
     // ── 6. Batch Actions ───────────────────────────────────────────────────────
@@ -1232,6 +1693,35 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       };
     },
 
+    get_shortcuts: async (args = {}) => {
+      const app = (args.app || "all").toLowerCase();
+      const category = (args.category || "").toLowerCase();
+
+      if (app !== "all" && OFFICE_SHORTCUTS[app]) {
+        const shortcuts = OFFICE_SHORTCUTS[app];
+        if (category && shortcuts[category]) {
+          return {
+            ok: true,
+            app,
+            category,
+            shortcuts: shortcuts[category],
+          };
+        }
+        return {
+          ok: true,
+          app,
+          categories: Object.keys(shortcuts),
+          shortcuts,
+        };
+      }
+
+      return {
+        ok: true,
+        apps: Object.keys(OFFICE_SHORTCUTS),
+        shortcuts: OFFICE_SHORTCUTS,
+      };
+    },
+
   };
 
   return {
@@ -1242,6 +1732,8 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       list_open: "low",
       get_active: "low",
       inspect_structure: "low",
+      undo: "low",
+      redo: "low",
       create: "low",
       open: "low",
       save: "low",
@@ -1253,6 +1745,18 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       replace_text: "low",
       clear_document: "low",
       append_section: "low",
+      compose_document: "low",
+      change_case: "low",
+      clear_formatting: "low",
+      paragraph_indent: "low",
+      paragraph_shading: "low",
+      insert_textbox: "low",
+      insert_watermark: "low",
+      set_columns: "low",
+      track_changes: "low",
+      insert_symbol: "low",
+      insert_caption: "low",
+      insert_bookmark: "low",
       format_text: "low",
       format_paragraphs: "low",
       page_setup: "low",
@@ -1276,6 +1780,8 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       ppt_export_slide: "low",
       ppt_background: "low",
       ppt_chart: "low",
+      ppt_transition: "low",
+      ppt_align_shapes: "low",
       read_range: "low",
       write_range: "low",
       write_cell: "low",
@@ -1285,6 +1791,9 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       excel_format_range: "low",
       excel_sheet_ops: "low",
       excel_calculate: "low",
+      excel_auto_filter: "low",
+      excel_data_validation: "low",
+      excel_sort: "low",
       batch_create: "low",
       batch_edit: "low",
       apply_style: "low",
@@ -1307,6 +1816,7 @@ export function createDocumentsDomain({ runtime, path, fs, crypto, domain }) {
       pdf_extract_text: "low",
       pdf_merge: "low",
       get_templates: "low",
+      get_shortcuts: "low",
     },
     actions
   };

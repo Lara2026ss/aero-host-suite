@@ -4,6 +4,7 @@
  */
 import { getVersion, PRODUCT_NAME } from "../core/version.mjs";
 import { RISK_LEVELS } from "../core/permissions.mjs";
+import { OFFICE_SHORTCUTS } from "./documents.mjs";
 
 export const DOMAIN_SIGNATURES = {
   documents: {
@@ -75,7 +76,27 @@ export const DOMAIN_SIGNATURES = {
     pdf_inspect: { signature: "{ path: string }", description: "Inspecciona metadatos y páginas de documento PDF." },
     pdf_extract_text: { signature: "{ path: string, startPage?: number, endPage?: number, maxPages?: number }", description: "Extrae texto limpio por página desde un PDF." },
     pdf_merge: { signature: "{ files: string[], outputPath: string }", description: "Fusiona múltiples documentos PDF en uno solo." },
-    get_templates: { signature: "{}", description: "Consulta las paletas de diseño y plantillas disponibles." }
+    get_templates: { signature: "{}", description: "Consulta las paletas de diseño y plantillas disponibles." },
+    undo: { signature: "{ app?: 'word'|'excel'|'powerpoint', times?: number, path?: string }", description: "Deshace una o más acciones previas en Word, Excel o PowerPoint." },
+    redo: { signature: "{ app?: 'word'|'excel'|'powerpoint', times?: number, path?: string }", description: "Rehace una o más acciones deshechas en Word, Excel o PowerPoint." },
+    compose_document: { signature: "{ path?: string, title: string, subtitle?: string, theme?: string, coverPage?: boolean, institution?: string, school?: string, subject?: string, team?: string[], date?: string, sections: Array<{ heading: string, body?: string, list?: string[], table?: any[][], callout?: string, divider?: boolean }>, pageNumbers?: boolean, header?: string, footer?: string, save?: boolean }", description: "Composición fluida de documento completo de nivel ejecutivo o académico en una sola llamada." },
+    change_case: { signature: "{ path?: string, case?: 'upper'|'lower'|'title'|'sentence', search?: string, paragraph?: number, save?: boolean }", description: "Cambia entre mayúsculas, minúsculas, tipo título o tipo oración en Word." },
+    clear_formatting: { signature: "{ path?: string, paragraph?: number, all?: boolean, save?: boolean }", description: "Limpia todo el formato de texto y párrafos volviendo al estilo base." },
+    paragraph_indent: { signature: "{ path?: string, action?: 'increase'|'decrease'|'set', paragraph?: number, leftIndent?: number, rightIndent?: number, firstLineIndent?: number, save?: boolean }", description: "Aumenta, disminuye o ajusta sangría exacta en Word." },
+    paragraph_shading: { signature: "{ path?: string, paragraph?: number, color?: string, save?: boolean }", description: "Aplica sombreado/color de fondo a párrafos en Word." },
+    insert_textbox: { signature: "{ path?: string, text?: string, left?: number, top?: number, width?: number, height?: number, fontSize?: number, fontName?: string, bold?: boolean, color?: string, fillColor?: string, borderColor?: string, borderWidth?: number, save?: boolean }", description: "Inserta un cuadro de texto flotante con relleno, bordes y tipografía personalizada." },
+    insert_watermark: { signature: "{ path?: string, text?: string, fontName?: string, fontSize?: number, color?: string, diagonal?: boolean, save?: boolean }", description: "Inserta marca de agua de texto en diagonal u horizontal en todas las páginas." },
+    set_columns: { signature: "{ path?: string, columns?: number, spacing?: number, lineBetween?: boolean, section?: number, save?: boolean }", description: "Divide la sección en 1, 2 o 3 columnas con espaciado y línea separadora opcional." },
+    track_changes: { signature: "{ path?: string, action?: 'enable'|'disable'|'toggle'|'accept_all'|'reject_all', save?: boolean }", description: "Control de cambios: activa/desactiva revisión o acepta/rechaza todas las revisiones." },
+    insert_symbol: { signature: "{ path?: string, symbol?: string, save?: boolean }", description: "Inserta caracteres especiales y símbolos tipográficos." },
+    insert_caption: { signature: "{ path?: string, label?: 'Figura'|'Tabla'|'Ecuación'|string, title?: string, position?: 'above'|'below', save?: boolean }", description: "Inserta título/leyenda numerada automática para figuras o tablas." },
+    insert_bookmark: { signature: "{ path?: string, name: string, save?: boolean }", description: "Inserta marcador o ancla de navegación en Word." },
+    ppt_transition: { signature: "{ path?: string, slideIndex?: number, effect?: 'fade'|'wipe'|'push'|'cut'|string, duration?: number, all?: boolean, save?: boolean }", description: "Aplica efectos de transición y duración a diapositivas en PowerPoint." },
+    ppt_align_shapes: { signature: "{ path?: string, slideIndex?: number, align?: 'left'|'center'|'right'|'top'|'middle'|'bottom', save?: boolean }", description: "Alinea y distribuye formas y objetos en una diapositiva de PowerPoint." },
+    excel_auto_filter: { signature: "{ path?: string, sheet?: string, range?: string, field?: number, criteria?: string, save?: boolean }", description: "Activa o filtra datos en Excel con autofiltro nativo por columna." },
+    excel_data_validation: { signature: "{ path?: string, sheet?: string, range: string, list: string[], title?: string, message?: string, save?: boolean }", description: "Crea listas desplegables y validación de entrada de datos en Excel." },
+    excel_sort: { signature: "{ path?: string, sheet?: string, range: string, keyCell?: string, descending?: boolean, hasHeader?: boolean, save?: boolean }", description: "Ordena rangos y tablas de datos en Excel ascendente o descendentemente." },
+    get_shortcuts: { signature: "{ app?: 'word'|'excel'|'powerpoint'|'all', category?: string }", description: "Consulta el catálogo maestro de atajos de teclado y Ribbon para Office." }
   },
   terminal: {
     run_command: { signature: "{ command: string, cwd?: string, timeoutMs?: number, maxOutputLines?: number }", description: "Ejecuta comandos de PowerShell o Bash de forma síncrona sin restricciones." },
@@ -140,6 +161,7 @@ export const DOMAIN_SIGNATURES = {
     get_catalog: { signature: "{ query?: string, filter?: string }", description: "Catálogo completo de todos los dominios y herramientas." },
     get_tool_guide: { signature: "{ tool?: string, query?: string, name?: string }", description: "Guía detallada de acciones, sintaxis y recetas. Soporta 'all' para el manual unificado." },
     get_recipes: { signature: "{ topic?: string }", description: "Recetas de formato y diseño profesional para documentos." },
+    get_shortcuts: { signature: "{ app?: 'word'|'excel'|'powerpoint'|'all', category?: string }", description: "Catálogo maestro de atajos de teclado y Ribbon para Office." },
     get_system_status: { signature: "{}", description: "Estado de módulos cargados y salud general." }
   }
 };
@@ -188,6 +210,25 @@ export const DOCUMENTS_RECIPES = {
       "2. Capturar página 2: capture_preview con app: 'word', page: 2, outputPath: 'C:/temp/pagina2.png'.",
       "3. Inspeccionar el archivo PNG generado para validar que no haya desbordes ni texto cortado."
     ]
+  },
+  fluent_document_composition: {
+    title: "6. Composición fluida de documentos con compose_document",
+    description: "Permite al agente redactar un documento completo con portada, índice, secciones, listas, tablas y recuadros de aviso en una única llamada.",
+    steps: [
+      "1. Invocar compose_document con title, theme ('modern_blue' o 'executive_burgundy'), coverPage: true.",
+      "2. Proporcionar el array de sections con heading, body, list, table y callout.",
+      "3. Activar pageNumbers: true y header/footer si se desea para obtener un documento listo para entrega sin pasos intermedios."
+    ]
+  },
+  ribbon_quick_actions: {
+    title: "7. Acciones rápidas de cinta (Ribbon) y atajos de teclado",
+    description: "Deshacer/rehacer histórico, marcas de agua, columnas de periódico, ordenamiento en Excel y transiciones de diapositivas.",
+    steps: [
+      "1. Deshacer/Rehacer: undo / redo con app: 'word' y times: 1.",
+      "2. Columnas y marcas de agua: set_columns con columns: 2; insert_watermark con text: 'BORRADOR'.",
+      "3. Tablas y filtros Excel: excel_auto_filter con range: 'A1:D50', excel_sort con keyCell: 'A2'.",
+      "4. Consultar atajos: get_shortcuts con app: 'word' para obtener todos los atajos de teclado oficiales."
+    ]
   }
 };
 
@@ -199,7 +240,8 @@ export function createGuideDomain({ runtime }) {
       get_catalog: RISK_LEVELS.LOW,
       get_tool_guide: RISK_LEVELS.LOW,
       get_recipes: RISK_LEVELS.LOW,
-      get_system_status: RISK_LEVELS.LOW
+      get_system_status: RISK_LEVELS.LOW,
+      get_shortcuts: RISK_LEVELS.LOW
     },
     actions: {
       async get_catalog(args = {}) {
@@ -325,6 +367,35 @@ export function createGuideDomain({ runtime }) {
           unrestricted: true,
           securityMode: "open",
           status: "healthy"
+        };
+      },
+
+      async get_shortcuts(args = {}) {
+        const app = (args.app || "all").toLowerCase();
+        const category = (args.category || "").toLowerCase();
+
+        if (app !== "all" && OFFICE_SHORTCUTS[app]) {
+          const shortcuts = OFFICE_SHORTCUTS[app];
+          if (category && shortcuts[category]) {
+            return {
+              ok: true,
+              app,
+              category,
+              shortcuts: shortcuts[category]
+            };
+          }
+          return {
+            ok: true,
+            app,
+            categories: Object.keys(shortcuts),
+            shortcuts
+          };
+        }
+
+        return {
+          ok: true,
+          apps: Object.keys(OFFICE_SHORTCUTS),
+          shortcuts: OFFICE_SHORTCUTS
         };
       }
     }

@@ -4410,6 +4410,694 @@ function Invoke-PptChart($params) {
     }
 }
 
+function Invoke-OfficeUndo($params) {
+    $appParam = if ($params.app) { $params.app.ToLower() } else { "word" }
+    $times = if ($params.times) { [int]$params.times } else { 1 }
+    
+    if ($appParam -eq "word") {
+        $word = Get-RunningApp "Word.Application"
+        if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+        $doc = Find-DocInCollection $word (Normalize-DocPath $params.path) "word"
+        if ($null -eq $doc) {
+            if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+            else { return @{ ok = $false; error = "No open Word document found" } }
+        }
+        try {
+            $undone = $false
+            for ($i = 0; $i -lt $times; $i++) {
+                try {
+                    $res = $doc.Undo(1)
+                    if ($res) { $undone = $true }
+                } catch {
+                    try {
+                        $word.CommandBars.ExecuteMso("Undo")
+                        $undone = $true
+                    } catch {}
+                }
+            }
+            return @{ ok = $true; app = "word"; action = "undo"; times = $times; success = $undone }
+        } finally {
+            Release-Com $doc
+            Release-Com $word
+            Invoke-GarbageCollection
+        }
+    } elseif ($appParam -eq "excel") {
+        $excel = Get-RunningApp "Excel.Application"
+        if ($null -eq $excel) { return @{ ok = $false; error = "Excel is not running" } }
+        try {
+            $excel.Undo()
+            return @{ ok = $true; app = "excel"; action = "undo"; times = 1 }
+        } catch {
+            return @{ ok = $false; error = "Nothing to undo in Excel: $($_.Exception.Message)" }
+        } finally {
+            Release-Com $excel
+            Invoke-GarbageCollection
+        }
+    } elseif ($appParam -eq "powerpoint" -or $appParam -eq "ppt") {
+        $ppt = Get-RunningApp "PowerPoint.Application"
+        if ($null -eq $ppt) { return @{ ok = $false; error = "PowerPoint is not running" } }
+        try {
+            $ppt.CommandBars.ExecuteMso("Undo")
+            return @{ ok = $true; app = "powerpoint"; action = "undo"; times = 1 }
+        } catch {
+            return @{ ok = $false; error = "PowerPoint undo failed: $($_.Exception.Message)" }
+        } finally {
+            Release-Com $ppt
+            Invoke-GarbageCollection
+        }
+    } else {
+        return @{ ok = $false; error = "Unsupported app for undo: $appParam" }
+    }
+}
+
+function Invoke-OfficeRedo($params) {
+    $appParam = if ($params.app) { $params.app.ToLower() } else { "word" }
+    $times = if ($params.times) { [int]$params.times } else { 1 }
+    
+    if ($appParam -eq "word") {
+        $word = Get-RunningApp "Word.Application"
+        if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+        $doc = Find-DocInCollection $word (Normalize-DocPath $params.path) "word"
+        if ($null -eq $doc) {
+            if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+            else { return @{ ok = $false; error = "No open Word document found" } }
+        }
+        try {
+            $redone = $false
+            for ($i = 0; $i -lt $times; $i++) {
+                try {
+                    $doc.Redo(1)
+                    $redone = $true
+                } catch {
+                    try {
+                        $word.CommandBars.ExecuteMso("Redo")
+                        $redone = $true
+                    } catch {}
+                }
+            }
+            return @{ ok = $true; app = "word"; action = "redo"; times = $times; success = $redone }
+        } finally {
+            Release-Com $doc
+            Release-Com $word
+            Invoke-GarbageCollection
+        }
+    } elseif ($appParam -eq "excel") {
+        $excel = Get-RunningApp "Excel.Application"
+        if ($null -eq $excel) { return @{ ok = $false; error = "Excel is not running" } }
+        try {
+            $excel.CommandBars.ExecuteMso("Redo")
+            return @{ ok = $true; app = "excel"; action = "redo"; times = 1 }
+        } catch {
+            return @{ ok = $false; error = "Nothing to redo in Excel: $($_.Exception.Message)" }
+        } finally {
+            Release-Com $excel
+            Invoke-GarbageCollection
+        }
+    } elseif ($appParam -eq "powerpoint" -or $appParam -eq "ppt") {
+        $ppt = Get-RunningApp "PowerPoint.Application"
+        if ($null -eq $ppt) { return @{ ok = $false; error = "PowerPoint is not running" } }
+        try {
+            $ppt.CommandBars.ExecuteMso("Redo")
+            return @{ ok = $true; app = "powerpoint"; action = "redo"; times = 1 }
+        } catch {
+            return @{ ok = $false; error = "PowerPoint redo failed: $($_.Exception.Message)" }
+        } finally {
+            Release-Com $ppt
+            Invoke-GarbageCollection
+        }
+    } else {
+        return @{ ok = $false; error = "Unsupported app for redo: $appParam" }
+    }
+}
+
+function Invoke-WordChangeCase($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $word = Get-RunningApp "Word.Application"
+    if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+    $doc = Find-DocInCollection $word $srcPath "word"
+    if ($null -eq $doc) {
+        if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+        else { return @{ ok = $false; error = "No open Word document found" } }
+    }
+    
+    $caseTypeStr = if ($params.case) { $params.case.ToLower() } else { "upper" }
+    $caseInt = switch ($caseTypeStr) {
+        "lower"     { 2 }
+        "sentence"  { 3 }
+        "title"     { 4 }
+        "toggle"    { 5 }
+        default     { 1 }
+    }
+    
+    try {
+        $targetRng = $null
+        if ($params.search) {
+            $find = $doc.Content.Find
+            $find.ClearFormatting()
+            $find.Text = [string]$params.search
+            $find.MatchCase = [bool]$params.matchCase
+            $find.MatchWholeWord = [bool]$params.matchWholeWord
+            if ($find.Execute()) {
+                $targetRng = $find.Parent
+            }
+        } elseif ($params.paragraph) {
+            $pIdx = [int]$params.paragraph
+            if ($pIdx -ge 1 -and $pIdx -le $doc.Paragraphs.Count) {
+                $targetRng = $doc.Paragraphs.Item($pIdx).Range
+            }
+        } else {
+            $targetRng = $word.Selection.Range
+            if ($targetRng.Start -eq $targetRng.End) {
+                $targetRng = $doc.Content
+            }
+        }
+        
+        if ($null -ne $targetRng) {
+            $targetRng.Case = $caseInt
+            if ($params.save -and $doc.Path -ne "") { try { $doc.Save() } catch {} }
+            return @{ ok = $true; case = $caseTypeStr; modifiedLength = ($targetRng.End - $targetRng.Start) }
+        }
+        return @{ ok = $false; error = "No matching range found for change_case" }
+    } finally {
+        Release-Com $doc
+        Release-Com $word
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-WordClearFormatting($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $word = Get-RunningApp "Word.Application"
+    if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+    $doc = Find-DocInCollection $word $srcPath "word"
+    if ($null -eq $doc) {
+        if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+        else { return @{ ok = $false; error = "No open Word document found" } }
+    }
+    
+    try {
+        $rng = if ($params.paragraph) {
+            $doc.Paragraphs.Item([int]$params.paragraph).Range
+        } elseif ($params.all) {
+            $doc.Content
+        } else {
+            $word.Selection.Range
+        }
+        
+        if ($rng.Start -eq $rng.End) { $rng = $doc.Content }
+        $rng.ClearFormatting()
+        if ($params.save -and $doc.Path -ne "") { try { $doc.Save() } catch {} }
+        return @{ ok = $true; action = "clear_formatting" }
+    } finally {
+        Release-Com $doc
+        Release-Com $word
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-WordParagraphIndent($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $word = Get-RunningApp "Word.Application"
+    if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+    $doc = Find-DocInCollection $word $srcPath "word"
+    if ($null -eq $doc) {
+        if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+        else { return @{ ok = $false; error = "No open Word document found" } }
+    }
+    
+    $action = if ($params.action) { $params.action.ToLower() } else { "increase" }
+    $pIdx = if ($params.paragraph) { [int]$params.paragraph } else { $null }
+    
+    try {
+        $pRange = if ($null -ne $pIdx -and $pIdx -ge 1 -and $pIdx -le $doc.Paragraphs.Count) {
+            $doc.Paragraphs.Item($pIdx).Range
+        } else {
+            $word.Selection.Range
+        }
+        
+        if ($action -eq "decrease" -or $action -eq "outdent") {
+            $pRange.ParagraphFormat.Outdent()
+        } elseif ($action -eq "set") {
+            if ($null -ne $params.leftIndent) { $pRange.ParagraphFormat.LeftIndent = [float]$params.leftIndent }
+            if ($null -ne $params.rightIndent) { $pRange.ParagraphFormat.RightIndent = [float]$params.rightIndent }
+            if ($null -ne $params.firstLineIndent) { $pRange.ParagraphFormat.FirstLineIndent = [float]$params.firstLineIndent }
+        } else {
+            $pRange.ParagraphFormat.Indent()
+        }
+        
+        if ($params.save -and $doc.Path -ne "") { try { $doc.Save() } catch {} }
+        return @{ ok = $true; action = $action; leftIndent = $pRange.ParagraphFormat.LeftIndent }
+    } finally {
+        Release-Com $doc
+        Release-Com $word
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-WordParagraphShading($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $word = Get-RunningApp "Word.Application"
+    if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+    $doc = Find-DocInCollection $word $srcPath "word"
+    if ($null -eq $doc) {
+        if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+        else { return @{ ok = $false; error = "No open Word document found" } }
+    }
+    
+    $color = if ($params.color) { $params.color } else { "#F2F4F7" }
+    $cVal = ConvertTo-WordColor $color
+    $pIdx = if ($params.paragraph) { [int]$params.paragraph } else { 1 }
+    
+    try {
+        $rng = if ($pIdx -ge 1 -and $pIdx -le $doc.Paragraphs.Count) {
+            $doc.Paragraphs.Item($pIdx).Range
+        } else {
+            $word.Selection.Range
+        }
+        
+        $rng.ParagraphFormat.Shading.BackgroundPatternColor = $cVal
+        if ($params.save -and $doc.Path -ne "") { try { $doc.Save() } catch {} }
+        return @{ ok = $true; paragraph = $pIdx; shadingColor = $color }
+    } finally {
+        Release-Com $doc
+        Release-Com $word
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-WordInsertTextbox($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $word = Get-RunningApp "Word.Application"
+    if ($null -eq $word) {
+        $word = New-Object -ComObject Word.Application
+        $word.Visible = $true
+        $doc = if ($srcPath -and (Test-Path $srcPath -ErrorAction SilentlyContinue)) { $word.Documents.Open($srcPath) } else { $word.Documents.Add() }
+    } else {
+        $doc = Find-DocInCollection $word $srcPath "word"
+        if ($null -eq $doc) {
+            if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+            else { $doc = $word.Documents.Add() }
+        }
+    }
+    
+    $text = if ($params.text) { [string]$params.text } else { "Text Box" }
+    $left = if ($params.left) { [float]$params.left } else { 100.0 }
+    $top = if ($params.top) { [float]$params.top } else { 100.0 }
+    $width = if ($params.width) { [float]$params.width } else { 250.0 }
+    $height = if ($params.height) { [float]$params.height } else { 80.0 }
+    
+    try {
+        $tb = $doc.Shapes.AddTextbox(0, $left, $top, $width, $height)
+        $tb.TextFrame.TextRange.Text = $text
+        
+        if ($params.fontSize) { $tb.TextFrame.TextRange.Font.Size = [float]$params.fontSize }
+        if ($params.fontName) { $tb.TextFrame.TextRange.Font.Name = [string]$params.fontName }
+        if ($params.bold) { $tb.TextFrame.TextRange.Font.Bold = 1 }
+        if ($params.color) { $tb.TextFrame.TextRange.Font.Color = ConvertTo-WordColor $params.color }
+        if ($params.fillColor) {
+            $tb.Fill.Solid()
+            $tb.Fill.ForeColor.RGB = ConvertTo-WordColor $params.fillColor
+        } else {
+            $tb.Fill.Solid()
+            $tb.Fill.ForeColor.RGB = 16777215
+        }
+        if ($params.borderColor) {
+            $tb.Line.Visible = 1
+            $tb.Line.ForeColor.RGB = ConvertTo-WordColor $params.borderColor
+            if ($params.borderWidth) { $tb.Line.Weight = [float]$params.borderWidth }
+        }
+        
+        if ($params.save -and $doc.Path -ne "") { try { $doc.Save() } catch {} }
+        return @{
+            ok = $true
+            shapeType = "textbox"
+            left = $left
+            top = $top
+            width = $width
+            height = $height
+            text = $text
+        }
+    } finally {
+        Release-Com $doc
+        Release-Com $word
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-WordInsertWatermark($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $word = Get-RunningApp "Word.Application"
+    if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+    $doc = Find-DocInCollection $word $srcPath "word"
+    if ($null -eq $doc) {
+        if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+        else { return @{ ok = $false; error = "No open Word document found" } }
+    }
+    
+    $text = if ($params.text) { [string]$params.text } else { "CONFIDENCIAL" }
+    $fontName = if ($params.fontName) { [string]$params.fontName } else { "Calibri" }
+    $fontSize = if ($params.fontSize) { [float]$params.fontSize } else { 72.0 }
+    $color = if ($params.color) { $params.color } else { "#D9D9D9" }
+    $diagonal = if ($null -ne $params.diagonal) { [bool]$params.diagonal } else { $true }
+    
+    try {
+        $sec = $doc.Sections.Item(1)
+        $header = $sec.Headers.Item(1)
+        
+        $wm = $header.Shapes.AddTextEffect(0, $text, $fontName, $fontSize, 1, 0, 100, 200)
+        $wm.Select()
+        $wm.Fill.Visible = 1
+        $wm.Fill.Solid()
+        $wm.Fill.ForeColor.RGB = ConvertTo-WordColor $color
+        $wm.Fill.Transparency = 0.5
+        $wm.Line.Visible = 0
+        if ($diagonal) {
+            $wm.Rotation = 315
+        } else {
+            $wm.Rotation = 0
+        }
+        $wm.RelativeHorizontalPosition = 1
+        $wm.RelativeVerticalPosition = 1
+        $wm.Left = -999995
+        $wm.Top = -999995
+        $wm.WrapFormat.Type = 3
+        
+        if ($params.save -and $doc.Path -ne "") { try { $doc.Save() } catch {} }
+        return @{ ok = $true; watermark = $text; diagonal = $diagonal; color = $color }
+    } finally {
+        Release-Com $doc
+        Release-Com $word
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-WordSetColumns($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $word = Get-RunningApp "Word.Application"
+    if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+    $doc = Find-DocInCollection $word $srcPath "word"
+    if ($null -eq $doc) {
+        if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+        else { return @{ ok = $false; error = "No open Word document found" } }
+    }
+    
+    $cols = if ($params.columns) { [int]$params.columns } elseif ($params.count) { [int]$params.count } else { 2 }
+    $spacing = if ($params.spacing) { [float]$params.spacing } else { 36.0 }
+    $lineBetween = [bool]$params.lineBetween
+    
+    try {
+        $sec = if ($params.section) { $doc.Sections.Item([int]$params.section) } else { $doc.Sections.Item(1) }
+        $sec.PageSetup.TextColumns.SetCount($cols)
+        $sec.PageSetup.TextColumns.Spacing = $spacing
+        $sec.PageSetup.TextColumns.LineBetween = if ($lineBetween) { 1 } else { 0 }
+        
+        if ($params.save -and $doc.Path -ne "") { try { $doc.Save() } catch {} }
+        return @{ ok = $true; columns = $cols; spacing = $spacing; lineBetween = $lineBetween }
+    } finally {
+        Release-Com $doc
+        Release-Com $word
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-WordTrackChanges($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $word = Get-RunningApp "Word.Application"
+    if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+    $doc = Find-DocInCollection $word $srcPath "word"
+    if ($null -eq $doc) {
+        if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+        else { return @{ ok = $false; error = "No open Word document found" } }
+    }
+    
+    $action = if ($params.action) { $params.action.ToLower() } else { "toggle" }
+    
+    try {
+        if ($action -eq "enable" -or $action -eq "on") {
+            $doc.TrackRevisions = $true
+        } elseif ($action -eq "disable" -or $action -eq "off") {
+            $doc.TrackRevisions = $false
+        } elseif ($action -eq "accept_all") {
+            $doc.AcceptAllRevisions()
+        } elseif ($action -eq "reject_all") {
+            $doc.RejectAllRevisions()
+        } else {
+            $doc.TrackRevisions = -not $doc.TrackRevisions
+        }
+        
+        if ($params.save -and $doc.Path -ne "") { try { $doc.Save() } catch {} }
+        return @{ ok = $true; trackRevisions = [bool]$doc.TrackRevisions; revisionsCount = $doc.Revisions.Count }
+    } finally {
+        Release-Com $doc
+        Release-Com $word
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-WordInsertSymbol($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $word = Get-RunningApp "Word.Application"
+    if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+    $doc = Find-DocInCollection $word $srcPath "word"
+    if ($null -eq $doc) {
+        if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+        else { return @{ ok = $false; error = "No open Word document found" } }
+    }
+    
+    $symbol = if ($params.symbol) { [string]$params.symbol } elseif ($params.char) { [string]$params.char } else { "©" }
+    try {
+        $word.Selection.TypeText($symbol)
+        if ($params.save -and $doc.Path -ne "") { try { $doc.Save() } catch {} }
+        return @{ ok = $true; symbol = $symbol }
+    } finally {
+        Release-Com $doc
+        Release-Com $word
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-WordInsertCaption($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $word = Get-RunningApp "Word.Application"
+    if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+    $doc = Find-DocInCollection $word $srcPath "word"
+    if ($null -eq $doc) {
+        if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+        else { return @{ ok = $false; error = "No open Word document found" } }
+    }
+    
+    $label = if ($params.label) { [string]$params.label } else { "Figura" }
+    $title = if ($params.title) { [string]$params.title } else { "Descripción" }
+    $pos = if ($params.position -eq "above") { 0 } else { 1 }
+    
+    try {
+        $word.Selection.InsertCaption($label, ": $title", [Type]::Missing, $pos, [Type]::Missing)
+        if ($params.save -and $doc.Path -ne "") { try { $doc.Save() } catch {} }
+        return @{ ok = $true; label = $label; title = $title; position = if ($pos -eq 0) { "above" } else { "below" } }
+    } finally {
+        Release-Com $doc
+        Release-Com $word
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-WordInsertBookmark($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $word = Get-RunningApp "Word.Application"
+    if ($null -eq $word) { return @{ ok = $false; error = "Word is not running" } }
+    $doc = Find-DocInCollection $word $srcPath "word"
+    if ($null -eq $doc) {
+        if ($word.Documents.Count -gt 0) { $doc = $word.ActiveDocument }
+        else { return @{ ok = $false; error = "No open Word document found" } }
+    }
+    
+    $name = if ($params.name) { [string]$params.name } else { "Bookmark_$([Guid]::NewGuid().ToString('N').Substring(0,8))" }
+    try {
+        $doc.Bookmarks.Add($name, $word.Selection.Range) | Out-Null
+        if ($params.save -and $doc.Path -ne "") { try { $doc.Save() } catch {} }
+        return @{ ok = $true; bookmark = $name }
+    } finally {
+        Release-Com $doc
+        Release-Com $word
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-ExcelAutoFilter($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $excel = Get-RunningApp "Excel.Application"
+    if ($null -eq $excel) { return @{ ok = $false; error = "Excel is not running" } }
+    $wb = Get-ExcelWorkbook $excel $srcPath
+    if ($null -eq $wb) {
+        if ($excel.Workbooks.Count -gt 0) { $wb = $excel.ActiveWorkbook }
+        else { return @{ ok = $false; error = "No open Excel workbook found" } }
+    }
+    
+    try {
+        $sheet = if ($params.sheet) { $wb.Sheets.Item($params.sheet) } else { $wb.ActiveSheet }
+        $rangeStr = if ($params.range) { $params.range } else { $sheet.UsedRange.Address }
+        $rng = $sheet.Range($rangeStr)
+        
+        if ($params.field -and $params.criteria) {
+            $rng.AutoFilter([int]$params.field, [string]$params.criteria)
+        } else {
+            $rng.AutoFilter()
+        }
+        
+        if ($params.save -and $wb.Path -ne "") { try { $wb.Save() } catch {} }
+        return @{ ok = $true; range = $rangeStr; autoFilterMode = [bool]$sheet.AutoFilterMode }
+    } finally {
+        Release-Com $wb
+        Release-Com $excel
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-ExcelDataValidation($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $excel = Get-RunningApp "Excel.Application"
+    if ($null -eq $excel) { return @{ ok = $false; error = "Excel is not running" } }
+    $wb = Get-ExcelWorkbook $excel $srcPath
+    if ($null -eq $wb) {
+        if ($excel.Workbooks.Count -gt 0) { $wb = $excel.ActiveWorkbook }
+        else { return @{ ok = $false; error = "No open Excel workbook found" } }
+    }
+    
+    try {
+        $sheet = if ($params.sheet) { $wb.Sheets.Item($params.sheet) } else { $wb.ActiveSheet }
+        if (-not $params.range) { return @{ ok = $false; error = "Parameter 'range' is required for data validation" } }
+        $rng = $sheet.Range($params.range)
+        
+        $rng.Validation.Delete()
+        $listStr = if ($params.list) {
+            if ($params.list -is [System.Array]) { $params.list -join "," } else { [string]$params.list }
+        } else { "Sí,No,Pendiente" }
+        
+        $rng.Validation.Add(3, 1, 1, $listStr)
+        $rng.Validation.IgnoreBlank = $true
+        $rng.Validation.InCellDropdown = $true
+        if ($params.title) {
+            $rng.Validation.ShowInputTitle = $true
+            $rng.Validation.InputTitle = [string]$params.title
+            if ($params.message) { $rng.Validation.InputMessage = [string]$params.message }
+        }
+        
+        if ($params.save -and $wb.Path -ne "") { try { $wb.Save() } catch {} }
+        return @{ ok = $true; range = $params.range; validationType = "list"; options = $listStr }
+    } finally {
+        Release-Com $wb
+        Release-Com $excel
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-ExcelSort($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $excel = Get-RunningApp "Excel.Application"
+    if ($null -eq $excel) { return @{ ok = $false; error = "Excel is not running" } }
+    $wb = Get-ExcelWorkbook $excel $srcPath
+    if ($null -eq $wb) {
+        if ($excel.Workbooks.Count -gt 0) { $wb = $excel.ActiveWorkbook }
+        else { return @{ ok = $false; error = "No open Excel workbook found" } }
+    }
+    
+    try {
+        $sheet = if ($params.sheet) { $wb.Sheets.Item($params.sheet) } else { $wb.ActiveSheet }
+        if (-not $params.range) { return @{ ok = $false; error = "Parameter 'range' is required for sort" } }
+        $rng = $sheet.Range($params.range)
+        
+        $keyCell = if ($params.keyCell) { $sheet.Range($params.keyCell) } else { $rng.Cells.Item(1, 1) }
+        $order = if ($params.descending) { 2 } else { 1 }
+        $hasHeader = if ($null -ne $params.hasHeader -and -not [bool]$params.hasHeader) { 2 } else { 1 }
+        
+        $rng.Sort($keyCell, $order, [Type]::Missing, [Type]::Missing, [Type]::Missing, [Type]::Missing, [Type]::Missing, $hasHeader)
+        if ($params.save -and $wb.Path -ne "") { try { $wb.Save() } catch {} }
+        return @{ ok = $true; range = $params.range; descending = [bool]$params.descending }
+    } finally {
+        Release-Com $wb
+        Release-Com $excel
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-PptTransition($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $ppt = Get-RunningApp "PowerPoint.Application"
+    if ($null -eq $ppt) { return @{ ok = $false; error = "PowerPoint is not running" } }
+    $pres = Get-PptPresentation $ppt $srcPath
+    if ($null -eq $pres) {
+        if ($ppt.Presentations.Count -gt 0) { $pres = $ppt.ActivePresentation }
+        else { return @{ ok = $false; error = "No open PowerPoint presentation found" } }
+    }
+    
+    $idx = if ($params.slideIndex) { [int]$params.slideIndex } else { 1 }
+    $all = [bool]$params.all
+    $effectStr = if ($params.effect) { $params.effect.ToLower() } else { "fade" }
+    
+    $effectInt = switch ($effectStr) {
+        "wipe"  { 257 }
+        "push"  { 3842 }
+        "cover" { 1281 }
+        "cut"   { 257 }
+        default { 3844 }
+    }
+    
+    try {
+        if ($all) {
+            foreach ($sl in $pres.Slides) {
+                $sl.SlideShowTransition.EntryEffect = $effectInt
+                if ($params.duration) { $sl.SlideShowTransition.Duration = [float]$params.duration }
+            }
+        } else {
+            $sl = $pres.Slides.Item($idx)
+            $sl.SlideShowTransition.EntryEffect = $effectInt
+            if ($params.duration) { $sl.SlideShowTransition.Duration = [float]$params.duration }
+        }
+        
+        if ($params.save -and $pres.Path -ne "") { try { $pres.Save() } catch {} }
+        return @{ ok = $true; effect = $effectStr; slideIndex = if ($all) { "all" } else { $idx } }
+    } finally {
+        Release-Com $pres
+        Release-Com $ppt
+        Invoke-GarbageCollection
+    }
+}
+
+function Invoke-PptAlignShapes($params) {
+    $srcPath = Normalize-DocPath $params.path
+    $ppt = Get-RunningApp "PowerPoint.Application"
+    if ($null -eq $ppt) { return @{ ok = $false; error = "PowerPoint is not running" } }
+    $pres = Get-PptPresentation $ppt $srcPath
+    if ($null -eq $pres) {
+        if ($ppt.Presentations.Count -gt 0) { $pres = $ppt.ActivePresentation }
+        else { return @{ ok = $false; error = "No open PowerPoint presentation found" } }
+    }
+    
+    $slideIdx = if ($params.slideIndex) { [int]$params.slideIndex } else { 1 }
+    $alignType = if ($params.align) { $params.align.ToLower() } else { "center" }
+    $alignInt = switch ($alignType) {
+        "left"   { 0 }
+        "right"  { 2 }
+        "top"    { 3 }
+        "middle" { 4 }
+        "bottom" { 5 }
+        default  { 1 }
+    }
+    
+    try {
+        $sl = $pres.Slides.Item($slideIdx)
+        if ($sl.Shapes.Count -ge 2) {
+            $sl.Shapes.Range().Align($alignInt, 0)
+        }
+        if ($params.save -and $pres.Path -ne "") { try { $pres.Save() } catch {} }
+        return @{ ok = $true; slideIndex = $slideIdx; align = $alignType; shapeCount = $sl.Shapes.Count }
+    } finally {
+        Release-Com $pres
+        Release-Com $ppt
+        Invoke-GarbageCollection
+    }
+}
+
 # --- Main Entry Point ---
 
 try {
@@ -4422,6 +5110,24 @@ try {
     $result = Invoke-ComWithRetry {
         switch ($action) {
             "inspect_structure"   { Invoke-InspectStructure $params }
+            "undo"                { Invoke-OfficeUndo $params }
+            "redo"                { Invoke-OfficeRedo $params }
+            "change_case"         { Invoke-WordChangeCase $params }
+            "clear_formatting"    { Invoke-WordClearFormatting $params }
+            "paragraph_indent"    { Invoke-WordParagraphIndent $params }
+            "paragraph_shading"   { Invoke-WordParagraphShading $params }
+            "insert_textbox"      { Invoke-WordInsertTextbox $params }
+            "insert_watermark"    { Invoke-WordInsertWatermark $params }
+            "set_columns"         { Invoke-WordSetColumns $params }
+            "track_changes"       { Invoke-WordTrackChanges $params }
+            "insert_symbol"       { Invoke-WordInsertSymbol $params }
+            "insert_caption"      { Invoke-WordInsertCaption $params }
+            "insert_bookmark"     { Invoke-WordInsertBookmark $params }
+            "excel_auto_filter"   { Invoke-ExcelAutoFilter $params }
+            "excel_data_validation" { Invoke-ExcelDataValidation $params }
+            "excel_sort"          { Invoke-ExcelSort $params }
+            "ppt_transition"      { Invoke-PptTransition $params }
+            "ppt_align_shapes"    { Invoke-PptAlignShapes $params }
             "word_table_format"   { Invoke-WordTableFormat $params }
             "word_comment"        { Invoke-WordComment $params }
             "word_hyperlink"      { Invoke-WordHyperlink $params }
